@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+
+@import "tailwindcss";
+
+@layer base{
+    body{
+        font-family: 'Inter', system-ui, 'Segoe UI','Open Sans', 'Helvetica Neue', sans-serif ;
+    }
+}
+
+@layer utilities{
+    .bg-fondo-principal {
+        background-image: url('/assets/img/fondoPrincipal.jpeg');
+    }
+    .bg-fondo-promo {
+        background-image: url('/assets/img/fondoPromo.jpeg');
+    }
+    .bg-fondo-bebida {
+        background-image: url('/assets/img/fondoBebida.jpeg');
+    }
+    .bg-fondo-staff {
+        background-image: url('/assets/img/fondoStaff.jpeg');
+    }
+    .no-spinner::-webkit-inner-spin-button,
+    .no-spinner::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+    }
+
+}
+html {
+  scroll-behavior: smooth;
+}
+/* Scrollbar elegante */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.6); /* color ámbar oscuro translúcido */
+  border-radius: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(120, 53, 15, 0.8); /* más oscuro al pasar el mouse */
+}
