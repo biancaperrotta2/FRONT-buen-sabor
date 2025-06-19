@@ -1,54 +1,115 @@
-# React + TypeScript + Vite
+# Buen Sabor — Frontend 🍔
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Este repositorio contiene el **frontend** de la aplicación **Buen Sabor**, una solución web moderna para gestionar pedidos de comida en línea.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🛠 Tecnologías utilizadas
 
-## Expanding the ESLint configuration
+- **React** con Vite
+- **TypeScript**
+- **React Router Dom** para navegación entre páginas
+- **Axios** para consumo de la API REST
+- **React Context** para manejo del estado global (carrito, sesión, etc.)
+- **Tailwind CSS** para estilos rápidos y personalizables
+- **Lucide React** y otros íconos para UI
+- **Shadcn/ui** para componentes accesibles y estilizados
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+## 🚀 Instrucciones de instalación y ejecución
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Cloná el repositorio y ejecutá los siguientes comandos:
+git clone https://github.com/biancaperrotta2/FRONT-buen-sabor.git
+cd FRONT-buen-sabor
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+# Instalar las dependencias
+npm install
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+# Ejecutar el servidor de desarrollo
+npm run dev
+
+## 🌐 Acceso a la aplicación
+
+Accedé a la aplicación desde:  
+[http://localhost:5173](http://localhost:5173)
+
+---
+
+## 🏗️ Construcción de la versión de producción
+
+Para construir una versión de producción, ejecutá:
+npm run build
+
+## 🔍 Previsualizar la build de producción
+
+Para previsualizar la build de producción, ejecutá:
+npm run preview
+
+## 🧩 Descripción general de los módulos implementados
+
+### 📄 Páginas
+
+- **Home**: Página de bienvenida y destacados.
+- **Catalogo**: Vista de productos (hamburguesas, bebidas, promociones, etc.).
+- **DetalleProducto**: Información detallada del producto seleccionado.
+- **Carrito**: Visualización de productos añadidos, con total, subtotal y selección de método de entrega.
+- **Login** y **Registro**: Autenticación de usuarios.
+- **Confirmación**: Modal al finalizar la orden con detalles de la compra.
+
+---
+
+### 🧠 Contextos globales
+
+- **CarritoContext**: Maneja los productos seleccionados, cantidades, subtotales, tipo de entrega, etc.
+- **AuthContext**: Maneja información del usuario logueado y el token.
+
+---
+
+### 🔌 Servicios / API
+
+- **FuncionesAPI.tsx**: Encapsula todas las llamadas HTTP a la API backend.
+  - Incluye funciones como `getArticulos`, `getPromociones`, `crearPedido`, etc.
+
+---
+
+### 💳 Componentes reutilizables
+
+- **CardInstrumento**: Muestra cada producto individual con imagen, precio y botón.
+- **GridInstrumento**: Arma una grilla de productos por categoría.
+- **ModalConfirmacionOrden**: Muestra detalles de la orden y código de compra.
+- **Header** y **Footer**: Navegación y pie de página.
+- **Boton**, **Input**, **Select**, etc.: Componentes UI reutilizables y estilizados con Tailwind y Shadcn.
+
+---
+
+## 📦 Estructura del repositorio
+
+```bash
+/src
+│
+├── assets/                  # Imágenes y recursos estáticos
+├── classes/                 # Clases TypeScript (Artículos, Promociones, etc.)
+├── components/              # Componentes reutilizables
+│   ├── CardInstrumento.tsx
+│   ├── GridInstrumento.tsx
+│   ├── ModalConfirmacionOrden.tsx
+│   └── ...
+│
+├── context/                 # Contextos globales
+│   ├── CarritoContext.tsx
+│   └── AuthContext.tsx
+│
+├── pages/                   # Páginas principales
+│   ├── Home.tsx
+│   ├── Catalogo.tsx
+│   ├── Carrito.tsx
+│   ├── Login.tsx
+│   └── ...
+│
+├── services/
+│   └── FuncionesAPI.tsx     # Funciones de conexión con el backend
+│
+├── App.tsx                  # Componente principal con enrutamiento
+├── main.tsx                 # Punto de entrada de la app
+└── index.css                # Estilos globales
