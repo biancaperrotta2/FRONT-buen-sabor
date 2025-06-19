@@ -20,14 +20,20 @@ Este repositorio contiene el **frontend** de la aplicación **Buen Sabor**, una 
 ## 🚀 Instrucciones de instalación y ejecución
 
 Cloná el repositorio y ejecutá los siguientes comandos:
+```bash
 git clone https://github.com/biancaperrotta2/FRONT-buen-sabor.git
 cd FRONT-buen-sabor
+```
 
 # Instalar las dependencias
+```bash
 npm install
+```
 
 # Ejecutar el servidor de desarrollo
+```bash
 npm run dev
+```
 
 ## 🌐 Acceso a la aplicación
 
@@ -39,12 +45,16 @@ Accedé a la aplicación desde:
 ## 🏗️ Construcción de la versión de producción
 
 Para construir una versión de producción, ejecutá:
+```bash
 npm run build
+```
 
 ## 🔍 Previsualizar la build de producción
 
 Para previsualizar la build de producción, ejecutá:
+```bash
 npm run preview
+```
 
 ## 🧩 Descripción general de los módulos implementados
 
@@ -113,3 +123,4 @@ npm run preview
 ├── App.tsx                  # Componente principal con enrutamiento
 ├── main.tsx                 # Punto de entrada de la app
 └── index.css                # Estilos globales
+```
