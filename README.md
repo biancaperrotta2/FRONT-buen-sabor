@@ -124,3 +124,6 @@ npm run preview
 ├── main.tsx                 # Punto de entrada de la app
 └── index.css                # Estilos globales
 ```
+## Integrantes del proyecto
+* Cerutti Paolo
+* Perrotta Bianca
