@@ -4,7 +4,9 @@ import { Categoria } from "./CategoriaClass";
 
 export class ArticuloInsumo extends Articulo {
   precioCompra: number;
+  margen: number;
   stockActual: number;
+  stockMinimo: number;
   stockMaximo: number;
   esParaElaborar: boolean;
 
@@ -19,7 +21,9 @@ export class ArticuloInsumo extends Articulo {
     esParaElaborar: boolean,
     imagen: string,
     activo: boolean = true,
-    id?: number
+    id?: number,
+    margen: number = 0,
+    stockMinimo: number = 0
   ) {
     super(
       denominacion,
@@ -31,7 +35,9 @@ export class ArticuloInsumo extends Articulo {
       id
     );
     this.precioCompra = precioCompra;
+    this.margen = margen;
     this.stockActual = stockActual;
+    this.stockMinimo = stockMinimo;
     this.stockMaximo = stockMaximo;
     this.esParaElaborar = esParaElaborar;
   }

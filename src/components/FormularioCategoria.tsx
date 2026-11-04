@@ -1,8 +1,9 @@
 // src/components/FormularioCategorias.tsx
 import React, { useState, useEffect } from 'react'
-import type { Categoria } from '../classes/CategoriaClass'
+import type { Categoria, TipoCategoria } from '../classes/CategoriaClass'
 import { useCategoria } from '../context/CategoriaContext'
 import type { CategoriaDto } from '../pages/Categorias'
+import { mensajeDeError } from '../api/client'
 
 interface Props {
     onClose: () => void
@@ -16,37 +17,55 @@ interface Props {
 
         const [denominacion, setDenominacion] = useState('')
         const [categoriaPadreId, setCategoriaPadreId] = useState<number | null>(null)
+        const [tipo, setTipo] = useState<TipoCategoria>('PRODUCTO')
+        const [error, setError] = useState<string | null>(null)
+
+        // Una subcategoría siempre es del mismo tipo que su padre (lo fuerza el backend).
+        const padre = categorias.find((c) => c.id === categoriaPadreId) ?? null
+        const tipoEfectivo: TipoCategoria = padre ? padre.tipo : tipo
 
         useEffect(() => {
             if (modoEdicion && categoriaEnEdicion) {
             setDenominacion(categoriaEnEdicion.denominacion)
             setCategoriaPadreId(categoriaEnEdicion.categoriaPadre?.id ?? null)
+            setTipo(categoriaEnEdicion.tipo)
             } else {
             setDenominacion('')
             setCategoriaPadreId(null)
+            setTipo('PRODUCTO')
             }
         }, [modoEdicion, categoriaEnEdicion])
 
-        const handleSubmit = (e: React.FormEvent) => {
+        const handleSubmit = async (e: React.FormEvent) => {
             e.preventDefault()
             if (!denominacion.trim()) return alert('El nombre de la categoría es obligatorio.')
 
             const categoriaDto: CategoriaDto = {
             denominacion: denominacion.trim(),
             categoriaPadreId: categoriaPadreId || null,
+            tipo: tipoEfectivo,
             }
 
+            setError(null)
+            try {
             if (modoEdicion && categoriaEnEdicion?.id !== undefined) {
-            editarCategoria(categoriaEnEdicion.id, categoriaDto)
+                await editarCategoria(categoriaEnEdicion.id, categoriaDto)
             } else {
-            agregarCategoria(categoriaDto)
+                await agregarCategoria(categoriaDto)
             }
-
             onClose()
+            } catch (err) {
+            setError(mensajeDeError(err))
+            }
         }
-        
+
         return (
             <form className="space-y-4" onSubmit={handleSubmit}>
+            {error && (
+                <p role="alert" className="rounded-md bg-red-50 border border-red-300 text-red-700 text-sm px-3 py-2">
+                No se pudo guardar la categoría: {error}
+                </p>
+            )}
             <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium text-gray-700">Nombre de la categoría</label>
                 <input
@@ -58,6 +77,24 @@ interface Props {
                 onChange={(e) => setDenominacion(e.target.value)}
                 autoFocus
                 />
+            </div>
+
+            <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-gray-700">Tipo</label>
+                <select
+                className="focus:outline-none focus:ring-1 focus:ring-green-400 border border-gray-200 py-2 px-2 w-full rounded-md shadow-sm disabled:bg-gray-100"
+                value={tipoEfectivo}
+                onChange={(e) => setTipo(e.target.value as TipoCategoria)}
+                disabled={padre !== null}
+                >
+                <option value="PRODUCTO">Productos (se muestra en el menú)</option>
+                <option value="INSUMO">Insumos (materia prima)</option>
+                </select>
+                <span className="text-xs text-gray-500">
+                {padre
+                    ? `Hereda el tipo de "${padre.denominacion}".`
+                    : 'Las de Productos aparecen en el formulario de Productos y Promociones; las de Insumos, en el de Insumos.'}
+                </span>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -74,7 +111,7 @@ interface Props {
                     .filter((c) => c.id !== categoriaEnEdicion?.id)
                     .map((cat) => (
                         <option key={cat.id} value={cat.id}>
-                        {cat.denominacion}
+                        {cat.denominacion} ({cat.tipo === 'INSUMO' ? 'Insumos' : 'Productos'})
                         </option>
                     ))}
                 </select>

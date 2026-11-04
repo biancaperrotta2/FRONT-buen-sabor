@@ -9,8 +9,7 @@ export const MercadoPagoCheckout = ({ preferenceId }: MercadoPagoCheckoutType) =
     return (
             <Wallet 
             initialization={{ preferenceId, redirectMode: 'self'   }}
-            onReady={() => console.log('Checkout listo')}
-            onError={(error) => console.log(error)}                   
+            onError={(error) => console.error('Error en el checkout de Mercado Pago:', error)}
             locale="es-AR"
             />
     );

@@ -3,14 +3,20 @@ import HeaderAdmin from "../components/HeaderAdmin";
 import SideBar from "../components/SideBar";
 import { Boton } from "../components/Boton";
 import { Modal } from "../components/Modal";
+import EncabezadoOrdenable from "../components/EncabezadoOrdenable";
+import Paginador from "../components/Paginador";
 import { useCategoria } from "../context/CategoriaContext";
-import type { Categoria } from "../classes/CategoriaClass";
+import type { Categoria, TipoCategoria } from "../classes/CategoriaClass";
 import { FormularioCategorias } from "../components/FormularioCategoria";
+import { useTablaServidor } from "../hooks/useTablaServidor";
+import { listarCategoriasAdmin } from "../services/categoriaService";
+import { mensajeDeError } from "../api/client";
 
 export interface CategoriaDto {
   id?: number;
   denominacion: string;
   categoriaPadreId: number | null;
+  tipo?: TipoCategoria;
 }
 
 export interface CategoriaPadreDto {
@@ -19,7 +25,23 @@ export interface CategoriaPadreDto {
 }
 
 export const Categorias = () => {
-  const { categorias, eliminarCategoria } = useCategoria();
+  // Se sigue usando el contexto solo para eliminarCategoria (y para que el formulario de
+  // alta/edición tenga la lista completa en su <select> de categoría padre); las filas que
+  // se muestran en la tabla vienen del endpoint paginado, no de categorias del contexto.
+  const { eliminarCategoria } = useCategoria();
+  const {
+    busqueda,
+    setBusqueda,
+    pagina,
+    setPagina,
+    ordenarPor,
+    direccion,
+    alClickearColumna,
+    datos,
+    cargando,
+    error: errorCarga,
+    recargar,
+  } = useTablaServidor<Categoria>(listarCategoriasAdmin);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false);
@@ -46,12 +68,17 @@ export const Categorias = () => {
     setModalEliminarAbierto(true);
   };
 
-  const confirmarEliminar = () => {
-    if (categoriaAEliminar?.id !== undefined) {
-      eliminarCategoria(categoriaAEliminar.id);
-    }
+  const confirmarEliminar = async () => {
+    const aEliminar = categoriaAEliminar;
     setCategoriaAEliminar(null);
     setModalEliminarAbierto(false);
+    if (aEliminar?.id === undefined) return;
+    try {
+      await eliminarCategoria(aEliminar.id);
+    } catch (error) {
+      alert(`No se pudo eliminar la categoría: ${mensajeDeError(error)}`);
+    }
+    recargar();
   };
 
   const cancelarEliminar = () => {
@@ -60,6 +87,9 @@ export const Categorias = () => {
   };
 
   const handleCerrarModal = () => {
+    // FormularioCategorias no distingue "cancelar" de "guardado con éxito" en su prop
+    // onClose, así que recargamos siempre: de más no molesta (mismo dato, otro fetch).
+    recargar();
     setIsModalOpen(false);
     setModoEdicion(false);
     setCategoriaEnEdicion(null);
@@ -76,26 +106,60 @@ export const Categorias = () => {
           <div className="flex justify-between items-center pb-4">
             <h1 className="text-2xl font-semibold">Categorías</h1>
             <Boton
-              estiloBoton="border rounded-md py-2 px-8 font-semibold text-sm bg-yellow-400 text-white hover:bg-yellow-500 transition"
+              estiloBoton="border rounded-md py-2 px-8 font-semibold text-sm bg-[#d6aa7b] text-white hover:bg-[#c69a69] transition"
               textoBoton="Añadir"
               onClick={handleAbrirModal}
             />
           </div>
 
-          <div className="overflow-x-auto max-h-120 rounded-lg shadow bg-white overflow-y-auto">
+          <input
+            type="text"
+            placeholder="Buscar por denominación..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            className="w-full max-w-sm mb-4 border rounded-md px-3 py-2 text-sm"
+          />
+
+          {errorCarga && <p className="text-red-600 text-sm mb-4">{errorCarga}</p>}
+
+          <div className="overflow-x-auto rounded-lg shadow bg-white">
             <table className="min-w-full text-sm text-center">
               <thead className="bg-gray-200 text-gray-700">
                 <tr>
-                  <th className="px-6 py-3">Denominación</th>
+                  <EncabezadoOrdenable campo="denominacion" etiqueta="Denominación" ordenarPor={ordenarPor} direccion={direccion} onClick={alClickearColumna} />
+                  <th className="px-6 py-3">Tipo</th>
                   <th className="px-6 py-3">Categoría Padre</th>
                   <th className="px-6 py-3">Acciones</th>
                 </tr>
               </thead>
               <tbody className="text-gray-800">
-                {categorias.map((cat) => (
+                {cargando && (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-6 text-gray-500">
+                      Cargando...
+                    </td>
+                  </tr>
+                )}
+                {!cargando && (datos?.contenido.length ?? 0) === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-6 text-gray-500">
+                      No hay categorías que coincidan con la búsqueda.
+                    </td>
+                  </tr>
+                )}
+                {(datos?.contenido ?? []).map((cat) => (
                   <tr key={cat.id} className="border-b hover:bg-gray-50">
                     <td className="px-6 py-4 font-medium">
                       {cat.denominacion}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                          cat.tipo === "INSUMO" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"
+                        }`}
+                      >
+                        {cat.tipo === "INSUMO" ? "Insumos" : "Productos"}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       {cat.categoriaPadre?.denominacion ?? "—"}
@@ -120,6 +184,16 @@ export const Categorias = () => {
                 ))}
               </tbody>
             </table>
+
+            {datos && (
+              <Paginador
+                pagina={pagina}
+                totalPaginas={datos.totalPaginas}
+                totalElementos={datos.totalElementos}
+                tamanio={datos.tamanio}
+                onCambiarPagina={setPagina}
+              />
+            )}
           </div>
         </main>
       </div>

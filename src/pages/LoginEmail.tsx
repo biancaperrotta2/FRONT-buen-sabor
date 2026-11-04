@@ -1,24 +1,57 @@
 import type { FC } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext"; // 👈
+import { useAuth } from "../context/AuthContext";
+import { ApiError } from "../api/client";
 
 const LoginEmail: FC = () => {
   const navigate = useNavigate();
-  const { login } = useAuth(); // 👈
+  const { login, loginConFirebase } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // El local es de cara al cliente; un repartidor, cocinero o cajero que se loguea
+  // acá va directo a su propio panel en vez de a la tienda.
+  const redirigirSegunRol = (usuario: { rol: string }) => {
+    if (usuario.rol === "REPARTIDOR") navigate("/repartidor");
+    else if (usuario.rol === "COCINERO") navigate("/cocina");
+    else if (usuario.rol === "CAJERO") navigate("/caja");
+    else navigate("/");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const nombreUsuario = email.split("@")[0];
-
-    // 👇 Enviamos un objeto tipo Usuario
-    login({ nombre: nombreUsuario });
-
-    navigate("/"); // Redirige al home
+    setError(null);
+    setCargando(true);
+    try {
+      const usuario = await login(email, password);
+      redirigirSegunRol(usuario);
+    } catch (err) {
+      // 403 = credenciales correctas pero cuenta desactivada: no hay nada que reintentar.
+      if (err instanceof ApiError && err.status === 403) {
+        setError(err.message);
+        setCargando(false);
+        return;
+      }
+      // Si el login normal falla, puede ser un usuario que reseteó su
+      // contraseña con Firebase (esa contraseña ya no está en nuestra base):
+      // se reintenta por ese camino antes de mostrar el error final.
+      try {
+        const usuario = await loginConFirebase(email, password);
+        redirigirSegunRol(usuario);
+      } catch {
+        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+          setError("Usuario o contraseña incorrectos.");
+        } else {
+          setError("No se pudo iniciar sesión. Intentá de nuevo.");
+        }
+      }
+    } finally {
+      setCargando(false);
+    }
   };
 
   return (
@@ -52,7 +85,7 @@ const LoginEmail: FC = () => {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <input
               type="email"
-              placeholder="E-mail"
+              placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -67,26 +100,43 @@ const LoginEmail: FC = () => {
               className="w-full border-b border-gray-300 py-2 focus:outline-none focus:border-gray-500 text-sm"
             />
 
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
             <button
               type="submit"
-              className="w-full bg-[#d6aa7b] text-whit
-              e font-medium py-2 rounded-md hover:bg-[#c69a69] transition"
+              disabled={cargando}
+              className="w-full bg-[#d6aa7b] text-white font-medium py-2 rounded-md hover:bg-[#c69a69] transition disabled:opacity-60"
             >
-              Continuar
+              {cargando ? "Ingresando..." : "Continuar"}
             </button>
           </form>
 
-          <div className="text-sm text-center pt-2">
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/recuperarcontrasena");
-              }}
-              className="text-blue-600 hover:underline"
-            >
-              ¿Has olvidado la contraseña?
-            </a>
+          <div className="text-sm text-center pt-2 space-y-2">
+            <p>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/recuperarcontrasena", { state: { email } });
+                }}
+                className="text-blue-600 hover:underline"
+              >
+                ¿Has olvidado la contraseña?
+              </a>
+            </p>
+            <p>
+              ¿No tenés cuenta?{" "}
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/registro");
+                }}
+                className="text-blue-600 hover:underline"
+              >
+                Registrate
+              </a>
+            </p>
           </div>
         </div>
       </div>

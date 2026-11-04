@@ -1,51 +1,64 @@
+import { useEffect, useState } from "react";
 import SeccionMenu from "./SeccionMenu";
-import { hamburguesa, papa, agregado } from "../data/ArticuloManufacturado";
-import { bebida, cerveza } from "../data/ArticuloInsumo";
-import { promo1, promo2, promo3 } from "../data/Promociones";
 import DetalleProductoModal from "./DetalleProductoModal";
-import { useState } from "react";
+import { useProductos } from "../context/ProductosContext";
+import { listarPromocionesVigentes } from "../services/promocionService";
+import { listarInsumosVendibles } from "../services/insumoService";
 import type { ArticuloManufacturado } from "../classes/ArticuloManufacturadoClass";
 import type { ArticuloInsumo } from "../classes/ArticuloInsumoClass";
-import type { Promocion } from "../classes/PromocionClass";
+import { Promocion } from "../classes/PromocionClass";
 
 type ArticuloMenu = ArticuloManufacturado | ArticuloInsumo | Promocion;
 
 const ContenedorMenu = () => {
+  const { productos } = useProductos();
+  const [promociones, setPromociones] = useState<Promocion[]>([]);
+  const [insumosVendibles, setInsumosVendibles] = useState<ArticuloInsumo[]>([]);
   const [productoSeleccionado, setProductoSeleccionado] = useState<ArticuloMenu | null>(null);
+
+  useEffect(() => {
+    listarPromocionesVigentes()
+      .then(setPromociones)
+      .catch((error) => console.error("Error al obtener promociones:", error));
+    listarInsumosVendibles()
+      .then(setInsumosVendibles)
+      .catch((error) => console.error("Error al obtener bebidas y otros:", error));
+  }, []);
 
   const handleProductoClick = (producto: ArticuloMenu) => {
     setProductoSeleccionado(producto);
   };
 
-  const handleAgregar = (producto: ArticuloMenu, cantidad: number) => {
-    console.log("Agregar al pedido:", producto, cantidad);
-    setProductoSeleccionado(null);
-  };
-
-  const promociones: Promocion[] = [promo1, promo2, promo3];
+  // Agrupamos los productos reales por su categoría (en vez de las secciones fijas del mock).
+  // Las promociones van en su propia sección, primero, en vez de mezclarse por categoría.
+  const secciones = new Map<string, ArticuloMenu[]>();
+  if (promociones.length > 0) secciones.set("Promociones", promociones);
+  // Los insumos que se venden directo (ej. gaseosas) van en la sección de su categoría,
+  // junto a los platos de esa misma categoría.
+  [...productos, ...insumosVendibles].forEach((producto) => {
+    const nombreCategoria = producto.categoria?.denominacion || "Otros";
+    if (!secciones.has(nombreCategoria)) secciones.set(nombreCategoria, []);
+    secciones.get(nombreCategoria)!.push(producto);
+  });
 
   return (
     <main className="px-4 py-6 md:px-16 scroll-smooth">
       <div className="w-full max-w-[1440px] mx-auto rounded-xl bg-white/70 backdrop-blur-md shadow-md p-6 flex gap-6">
         <div className="flex-1 space-y-10">
-          <div id="combos">
-            <SeccionMenu titulo="COMBOS" productos={promociones} onProductoClick={handleProductoClick} />
-          </div>
-          <div id="hamburguesas">
-            <SeccionMenu titulo="HAMBURGUESAS" productos={hamburguesa} onProductoClick={handleProductoClick} />
-          </div>
-          <div id="agregados">
-            <SeccionMenu titulo="AGREGADOS" productos={agregado} onProductoClick={handleProductoClick} />
-          </div>
-          <div id="papas">
-            <SeccionMenu titulo="PAPAS" productos={papa} onProductoClick={handleProductoClick} />
-          </div>
-          <div id="bebidas">
-            <SeccionMenu titulo="BEBIDAS" productos={bebida} onProductoClick={handleProductoClick} />
-          </div>
-          <div id="cervezas">
-            <SeccionMenu titulo="CERVEZAS" productos={cerveza} onProductoClick={handleProductoClick} />
-          </div>
+          {[...secciones.entries()].map(([nombreCategoria, items]) => (
+            <div id={nombreCategoria.toLowerCase()} key={nombreCategoria}>
+              <SeccionMenu
+                titulo={nombreCategoria.toUpperCase()}
+                productos={items}
+                onProductoClick={handleProductoClick}
+              />
+            </div>
+          ))}
+          {productos.length === 0 && promociones.length === 0 && (
+            <p className="text-center text-gray-600 py-10">
+              Todavía no hay productos cargados en el menú.
+            </p>
+          )}
         </div>
       </div>
       {productoSeleccionado && (
@@ -60,4 +73,3 @@ const ContenedorMenu = () => {
 };
 
 export default ContenedorMenu;
-

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import type { UnidadMedida } from '../classes/UnidadMedidaClass'
+import { UnidadMedida } from '../classes/UnidadMedidaClass'
+import { apiFetchJson } from '../api/client'
 
 interface Props {
     onClose: () => void
@@ -15,6 +16,7 @@ export const FormularioUnidadMedida = ({
     unidadEnEdicion = null,
 }: Props) => {
     const [denominacion, setDenominacion] = useState('')
+    const [guardando, setGuardando] = useState(false)
 
     useEffect(() => {
         if (modoEdicion && unidadEnEdicion) {
@@ -24,7 +26,7 @@ export const FormularioUnidadMedida = ({
         }
     }, [modoEdicion, unidadEnEdicion])
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
         if (!denominacion.trim()) {
@@ -32,13 +34,22 @@ export const FormularioUnidadMedida = ({
             return
         }
 
-        const unidad: UnidadMedida = {
-            ...unidadEnEdicion,
-            denominacion: denominacion.trim(),
-        }
+        setGuardando(true)
+        try {
+            const body = JSON.stringify({ denominacion: denominacion.trim(), abreviatura: denominacion.trim().slice(0, 3).toLowerCase() })
+            const data =
+                modoEdicion && unidadEnEdicion?.id !== undefined
+                    ? await apiFetchJson<any>(`/unidad-medida/${unidadEnEdicion.id}`, { method: 'PUT', body })
+                    : await apiFetchJson<any>('/unidad-medida', { method: 'POST', body })
 
-        onGuardar(unidad)
-        onClose()
+            onGuardar(new UnidadMedida(data.denominacion, data.id))
+            onClose()
+        } catch (error) {
+            console.error('Error al guardar unidad de medida:', error)
+            alert('No se pudo guardar la unidad de medida.')
+        } finally {
+            setGuardando(false)
+        }
     }
 
     return (
@@ -67,11 +78,11 @@ export const FormularioUnidadMedida = ({
                     Cancelar
                 </button>
                 <button
-                    type="button"
-                    onClick={handleSubmit}
-                    className="cursor-pointer bg-green-400 text-white px-4 py-2 rounded hover:bg-green-600"
+                    type="submit"
+                    disabled={guardando}
+                    className="cursor-pointer bg-green-400 text-white px-4 py-2 rounded hover:bg-green-600 disabled:opacity-60"
                 >
-                    {modoEdicion ? 'Actualizar' : 'Guardar'}
+                    {guardando ? 'Guardando...' : modoEdicion ? 'Actualizar' : 'Guardar'}
                 </button>
             </div>
         </form>

@@ -105,6 +105,15 @@ const Header = () => {
                 <div className="absolute right-0 top-full mt-1 w-40 bg-black/90 border border-gray-600 rounded-md shadow-lg z-50">
                   <button
                     onClick={() => {
+                      navigate("/mis-pedidos");
+                      setMenuUsuarioVisible(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-white hover:bg-gray-700 transition"
+                  >
+                    Mis pedidos
+                  </button>
+                  <button
+                    onClick={() => {
                       logout();
                       setMenuUsuarioVisible(false);
                     }}

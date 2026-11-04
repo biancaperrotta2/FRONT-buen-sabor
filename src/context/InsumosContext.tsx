@@ -2,13 +2,25 @@ import React, { createContext, useContext } from "react";
 import { ArticuloInsumo } from "../classes/ArticuloInsumoClass";
 import type { UnidadMedida } from "../classes/UnidadMedidaClass";
 import { useInsumosApi } from "../hooks/useInsumosApi"; // Asegúrate de que el path sea correcto
+import type { Direccion, PageResponse } from "../services/paginacion";
+import type { InsumoDto } from "../pages/Insumo";
 
 interface InsumosContextType {
     insumos: ArticuloInsumo[];
+    datosPagina: PageResponse<ArticuloInsumo> | null;
+    busqueda: string;
+    setBusqueda: (busqueda: string) => void;
+    pagina: number;
+    setPagina: (pagina: number) => void;
+    ordenarPor: string | null;
+    direccion: Direccion;
+    alClickearColumna: (campo: string) => void;
+    cargandoInsumos: boolean;
+    errorInsumos: string | null;
     unidadesMedida: UnidadMedida[];
     fetchInsumos: () => void;
-    agregarInsumo: (nuevo: ArticuloInsumo) => Promise<void>;
-    editarInsumo: (id: number, actualizado: ArticuloInsumo) => Promise<void>;
+    agregarInsumo: (nuevo: InsumoDto) => Promise<void>;
+    editarInsumo: (id: number, actualizado: InsumoDto) => Promise<void>;
     eliminarInsumo: (id: number) => Promise<void>;
 }
 
@@ -23,26 +35,10 @@ export const useInsumos = (): InsumosContextType => {
 };
 
 export const InsumosProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const {
-        insumos,
-        unidadesMedida,
-        fetchInsumos,
-        agregarInsumo,
-        editarInsumo,
-        eliminarInsumo,
-    } = useInsumosApi();
+    const valor = useInsumosApi();
 
     return (
-        <InsumosContext.Provider
-            value={{
-                insumos,
-                unidadesMedida,
-                fetchInsumos,
-                agregarInsumo,
-                editarInsumo,
-                eliminarInsumo,
-            }}
-        >
+        <InsumosContext.Provider value={valor}>
             {children}
         </InsumosContext.Provider>
     );

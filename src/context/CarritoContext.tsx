@@ -3,8 +3,12 @@ import type { ReactNode } from "react";
 import { ArticuloManufacturado } from "../classes/ArticuloManufacturadoClass";
 import { ArticuloInsumo } from "../classes/ArticuloInsumoClass";
 import { Promocion } from "../classes/PromocionClass";
+import type { Domicilio } from "../services/pedidoService";
 
 type ArticuloMenu = ArticuloManufacturado | ArticuloInsumo | Promocion;
+
+// Mismo 10% que aplica Pedido.calcularTotal() en el backend para retiro en tienda.
+const PORCENTAJE_DESCUENTO_RETIRO = 0.1;
 
 interface ProductoCarrito {
   item: ArticuloMenu;
@@ -17,11 +21,16 @@ interface CarritoContextType {
   agregarAlCarrito: (item: ArticuloMenu, cantidad: number) => void;
   eliminarProducto: (idUnico: string) => void;
   actualizarCantidad: (idUnico: string, delta: number) => void;
+  vaciarCarrito: () => void;
   subtotal: number;
   total: number;
-  deliveryCosto: number;
+  // null = todavía no se sabe (delivery elegido pero sin dirección aún, ver Carrito/ModalFactura).
+  deliveryCosto: number | null;
+  descuentoRetiro: number;
   tipoEntrega: "tienda" | "delivery";
   setTipoEntrega: React.Dispatch<React.SetStateAction<"tienda" | "delivery">>;
+  domicilioSeleccionado: Domicilio | null;
+  setDomicilioSeleccionado: React.Dispatch<React.SetStateAction<Domicilio | null>>;
 }
 
 const CarritoContext = createContext<CarritoContextType | undefined>(undefined);
@@ -44,6 +53,9 @@ const obtenerPrecioUnitario = (item: ArticuloMenu): number => {
 export const CarritoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [productos, setProductos] = useState<ProductoCarrito[]>([]);
   const [tipoEntrega, setTipoEntrega] = useState<"tienda" | "delivery">("tienda");
+  // Se mantiene aunque el cliente pase de "delivery" a "tienda" y vuelva, para no hacerlo
+  // elegir la dirección de nuevo (SelectorDomicilio igual la re-confirma/autoselecciona).
+  const [domicilioSeleccionado, setDomicilioSeleccionado] = useState<Domicilio | null>(null);
 
   const agregarAlCarrito = (item: ArticuloMenu, cantidad: number) => {
     const idUnico = `${item.id}-${Date.now()}`;
@@ -64,13 +76,24 @@ export const CarritoProvider: React.FC<{ children: ReactNode }> = ({ children })
     );
   };
 
+  // Se usa después de confirmar un pedido: el backend ya vació el carrito persistido
+  // como parte de crearPedido, esto solo limpia el estado local en memoria.
+  const vaciarCarrito = () => {
+    setProductos([]);
+  };
+
   const subtotal = productos.reduce(
     (acc, prod) => acc + obtenerPrecioUnitario(prod.item) * prod.cantidad,
     0
   );
 
-  const deliveryCosto = tipoEntrega === "delivery" ? 1000 : 0;
-  const total = subtotal + deliveryCosto;
+  // null = delivery elegido pero todavía no se sabe la dirección (SelectorDomicilio no cargó o
+  // el cliente no tiene ninguna guardada todavía); no se arriesga un número mientras tanto.
+  const deliveryCosto =
+    tipoEntrega === "delivery" ? domicilioSeleccionado?.costoEnvio ?? null : 0;
+  // Mismo 10% que Pedido.calcularTotal() en el backend, sobre el subtotal de productos.
+  const descuentoRetiro = tipoEntrega === "tienda" ? Math.round(subtotal * PORCENTAJE_DESCUENTO_RETIRO) : 0;
+  const total = subtotal - descuentoRetiro + (deliveryCosto ?? 0);
 
   return (
     <CarritoContext.Provider
@@ -79,11 +102,15 @@ export const CarritoProvider: React.FC<{ children: ReactNode }> = ({ children })
         agregarAlCarrito,
         eliminarProducto,
         actualizarCantidad,
+        vaciarCarrito,
         subtotal,
         total,
         deliveryCosto,
+        descuentoRetiro,
         tipoEntrega,
         setTipoEntrega,
+        domicilioSeleccionado,
+        setDomicilioSeleccionado,
       }}
     >
       {children}

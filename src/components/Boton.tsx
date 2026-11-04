@@ -5,15 +5,17 @@ type Boton = {
     tipo?: "submit" | "reset" | "button" | undefined ,
     onClick?: () => void,
     textoBoton?: string,
-    estiloBoton?: string
+    estiloBoton?: string,
+    disabled?: boolean
 }
 
-export const Boton = ({tipo, onClick, textoBoton, estiloBoton}: Boton) => {
+export const Boton = ({tipo, onClick, textoBoton, estiloBoton, disabled}: Boton) => {
     return (
         <button
             type={tipo}
             onClick={onClick}
-            className={`${estiloBoton} cursor-pointer`}
+            disabled={disabled}
+            className={`${estiloBoton} ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
         >
             {textoBoton}
         </button>

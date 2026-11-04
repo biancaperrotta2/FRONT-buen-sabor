@@ -1,34 +1,17 @@
 import { createPortal } from "react-dom";
 import { MdClose } from "react-icons/md";
-import { useCarrito } from "../context/CarritoContext";
 import { Boton } from "./Boton";
+import type { PedidoCreado } from "../services/pedidoService";
 
 interface Props {
   onClose: () => void;
-  direccion: string;
+  pedido: PedidoCreado;
 }
 
-// ✅ Función auxiliar para obtener precio correcto
-const obtenerPrecioUnitario = (item: any): number => {
-  if ("precioPromocional" in item && typeof item.precioPromocional === "number") {
-    return item.precioPromocional;
-  } else if ("precioVenta" in item && typeof item.precioVenta === "number") {
-    return item.precioVenta;
-  }
-  return 0;
-};
+// El backend devuelve un LocalTime tipo "19:52:41.7861806"; solo interesa HH:mm.
+const formatearHora = (hora: string) => hora.slice(0, 5);
 
-const ModalConfirmacionOrden = ({ onClose, direccion }: Props) => {
-  const { productos, tipoEntrega } = useCarrito();
-
-  const codigoSeguimiento = Math.floor(100000 + Math.random() * 900000); 
-
-  const horaEntrega = () => {
-    const ahora = new Date();
-    ahora.setMinutes(ahora.getMinutes() + 40); 
-    return ahora.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
-
+const ModalConfirmacionOrden = ({ onClose, pedido }: Props) => {
   return createPortal(
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999]">
       <div className="bg-white rounded-lg p-6 w-[420px] relative shadow-xl text-black">
@@ -41,41 +24,22 @@ const ModalConfirmacionOrden = ({ onClose, direccion }: Props) => {
         <div className="text-sm mb-4">
           <p className="font-medium">Detalle de Entrega</p>
           <p className="mb-1">
-            Su pedido llegará aproximadamente a las {horaEntrega()}
+            Su pedido llegará aproximadamente a las{" "}
+            {formatearHora(pedido.horaEstimadaFinalizacion)}
           </p>
           <p className="mb-1">
-            {tipoEntrega === "tienda" ? "Retiro en tienda" : "Delivery"} – {direccion}
+            {pedido.tipoEnvio === "TAKE_AWAY" ? "Retiro en tienda" : "Delivery"} –{" "}
+            {pedido.domicilioSnapshot}
           </p>
           <p className="mb-2">
-            Código de Pedido: <strong>{codigoSeguimiento}</strong>
+            Número de Pedido: <strong>#{pedido.id}</strong>
           </p>
           <hr />
         </div>
 
         <div className="text-sm mb-4">
-          <p className="font-medium mb-2">Detalles de la Orden</p>
-          <table className="w-full text-sm border border-gray-200">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="text-left p-2">Productos</th>
-                <th className="text-right p-2">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {productos.map((prod) => (
-                <tr key={prod.idUnico}>
-                  <td className="p-2">
-                    {prod.cantidad} x <strong>{prod.item.denominacion}</strong>
-                  </td>
-                  <td className="p-2 text-right">
-                    ${(
-                      obtenerPrecioUnitario(prod.item) * prod.cantidad
-                    ).toLocaleString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <p className="font-medium mb-2">Total</p>
+          <p className="text-base font-bold">${pedido.total.toLocaleString()}</p>
         </div>
 
         <Boton
@@ -90,5 +54,3 @@ const ModalConfirmacionOrden = ({ onClose, direccion }: Props) => {
 };
 
 export default ModalConfirmacionOrden;
-
-

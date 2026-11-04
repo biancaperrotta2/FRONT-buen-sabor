@@ -1,118 +1,139 @@
-    import React, { createContext, useContext, useEffect, useState } from "react";
-    import { ArticuloManufacturado } from "../classes/ArticuloManufacturadoClass";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { ArticuloManufacturado } from "../classes/ArticuloManufacturadoClass";
+import { Categoria } from "../classes/CategoriaClass";
+import { UnidadMedida } from "../classes/UnidadMedidaClass";
+import { apiFetchJson } from "../api/client";
 
-    // Tipo del contexto
-    interface ProductosContextType {
-    productos: ArticuloManufacturado[];
-    fetchProductos: () => void;
-    agregarProducto: (nuevo: ArticuloManufacturado) => Promise<void>;
-    actualizarProducto: (id: number, actualizado: ArticuloManufacturado) => Promise<void>;
-    eliminarProducto: (id: number) => Promise<void>;
+export interface DetalleManufacturadoDto {
+  idComponente: number;
+  cantidad: number;
+}
+
+export interface ManufacturadoDto {
+  id?: number;
+  denominacion: string;
+  precioVenta: number;
+  descripcion: string;
+  tiempoEstimado: number;
+  preparacion: string;
+  unidadMedida: UnidadMedida | null;
+  categoria: Categoria | null;
+  imagenUrl?: string | null;
+  // Receta: los ingredientes (insumos o semielaborados) que se descuentan del stock en
+  // cada venta. Vacía por defecto (un producto sin receta cargada no descuenta stock
+  // de nada, ver CLAUDE.md "Receta de productos (ingredientes) — agregada 2026-09-24").
+  detalles: DetalleManufacturadoDto[];
+}
+
+interface ProductosContextType {
+  productos: ArticuloManufacturado[];
+  fetchProductos: () => void;
+  agregarProducto: (nuevo: ManufacturadoDto) => Promise<void>;
+  actualizarProducto: (id: number, actualizado: ManufacturadoDto) => Promise<void>;
+  eliminarProducto: (id: number) => Promise<void>;
+}
+
+const ProductosContext = createContext<ProductosContextType | undefined>(undefined);
+
+export const useProductos = () => {
+  const context = useContext(ProductosContext);
+  if (!context) {
+    throw new Error("useProductos debe usarse dentro de un ProductosProvider");
+  }
+  return context;
+};
+
+export const mapearBase = (item: any) =>
+  new ArticuloManufacturado(
+    item.denominacion,
+    item.precioVenta,
+    item.unidadMedida ?? new UnidadMedida(""),
+    item.categoria ?? new Categoria("", null),
+    item.descripcion,
+    item.tiempoEstimado ?? 0,
+    item.preparacion ?? "",
+    item.detalles ?? [],
+    item.imagenUrl,
+    item.activo ?? true,
+    item.id
+  );
+
+const mapearFull = (item: any) =>
+  new ArticuloManufacturado(
+    item.denominacion,
+    item.precioVenta,
+    item.unidadMedida ?? new UnidadMedida(""),
+    item.categoria
+      ? new Categoria(item.categoria.denominacion ?? item.categoria.nombre, item.categoria.categoriaPadre, item.categoria.id)
+      : new Categoria("", null),
+    item.descripcion,
+    item.tiempoEstimado ?? 0,
+    item.preparacion ?? "",
+    item.detalles ?? [],
+    item.imagenes?.[0]?.url,
+    item.activo ?? true,
+    item.id
+  );
+
+const aRequest = (dto: ManufacturadoDto) => ({
+  denominacion: dto.denominacion,
+  precioVenta: dto.precioVenta,
+  descripcion: dto.descripcion,
+  tiempoEstimado: dto.tiempoEstimado,
+  preparacion: dto.preparacion,
+  imagenes: dto.imagenUrl ? [{ denominacion: dto.denominacion, url: dto.imagenUrl }] : [],
+  categoria: dto.categoria
+    ? { denominacion: dto.categoria.denominacion, idCategoriaPadre: dto.categoria.id ?? null }
+    : null,
+  articuloManufacturadoDetalles: dto.detalles.map((d) => ({
+    idComponente: d.idComponente,
+    cantidad: d.cantidad,
+  })),
+});
+
+export const ProductosProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [productos, setProductos] = useState<ArticuloManufacturado[]>([]);
+
+  const fetchProductos = async () => {
+    try {
+      const data = await apiFetchJson<any[]>("/articulo-manufacturado");
+      setProductos(data.map(mapearBase));
+    } catch (error) {
+      console.error("Error al obtener productos:", error);
     }
+  };
 
-    // Crear contexto
-    const ProductosContext = createContext<ProductosContextType | undefined>(undefined);
+  const agregarProducto = async (nuevo: ManufacturadoDto) => {
+    const data = await apiFetchJson<any>("/articulo-manufacturado", {
+      method: "POST",
+      body: JSON.stringify(aRequest(nuevo)),
+    });
+    setProductos((prev) => [...prev, mapearFull(data)]);
+  };
 
-    // Hook para acceder al contexto
-    export const useProductos = () => {
-    const context = useContext(ProductosContext);
-    if (!context) {
-        throw new Error("useProductos debe usarse dentro de un ProductosProvider");
-    }
-    return context;
-    };
+  const actualizarProducto = async (id: number, actualizado: ManufacturadoDto) => {
+    const data = await apiFetchJson<any>(`/articulo-manufacturado/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(aRequest(actualizado)),
+    });
+    const productoActualizado = mapearFull(data);
+    setProductos((prev) => prev.map((p) => (p.id === id ? productoActualizado : p)));
+  };
 
-    // Provider
-    export const ProductosProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [productos, setProductos] = useState<ArticuloManufacturado[]>([]);
+  const eliminarProducto = async (id: number) => {
+    await apiFetchJson(`/articulo-manufacturado/${id}`, { method: "DELETE" });
+    setProductos((prev) => prev.filter((p) => p.id !== id));
+  };
 
-    const fetchProductos = async () => {
-        try {
-        const res = await fetch("http://localhost:8080/articulo-manufacturado");
-        const data = await res.json();
-        const instancias = data.map((item: any) => 
-            new ArticuloManufacturado(
-            item.id,
-            item.denominacion,
-            item.precioVenta,
-            item.descripcion,
-            item.tiempoEstimado,
-            item.preparacion,
-            item.unidadMedida,
-            item.categoria,
-            item.articuloManufacturadoDetalles
-            )
-        );
-        setProductos(instancias);
-        } catch (error) {
-        console.error("Error al obtener productos:", error);
-        }
-    };
+  useEffect(() => {
+    fetchProductos();
+  }, []);
 
-    const agregarProducto = async (nuevo: ArticuloManufacturado) => {
-        try {
-        const res = await fetch("http://localhost:8080/articulo-manufacturado", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(nuevo),
-        });
-        if (!res.ok) throw new Error("Error al agregar producto");
-        const data = await res.json();
-        const nuevoProducto = new ArticuloManufacturado(
-            data.id,
-            data.denominacion,
-            data.precioVenta,
-            data.descripcion,
-            data.tiempoEstimado,
-            data.preparacion,
-            data.unidadMedida,
-            data.categoria,
-            data.articuloManufacturadoDetalles
-        );
-        setProductos((prev) => [...prev, nuevoProducto]);
-        } catch (error) {
-        console.error("Error al agregar producto:", error);
-        }
-    };
-
-    const actualizarProducto = async (id: number, actualizado: ArticuloManufacturado) => {
-        try {
-        const res = await fetch(`http://localhost:8080/articulo-manufacturado/${id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(actualizado),
-        });
-        if (!res.ok) throw new Error("Error al actualizar producto");
-        await res.json();
-        setProductos((prev) =>
-            prev.map((p) => (p.id === id ? { ...actualizado, id } : p))
-        );
-        } catch (error) {
-        console.error("Error al actualizar producto:", error);
-        }
-    };
-
-    const eliminarProducto = async (id: number) => {
-        try {
-        const res = await fetch(`http://localhost:8080/articulo-manufacturado/${id}`, {
-            method: "DELETE",
-        });
-        if (!res.ok) throw new Error("Error al eliminar producto");
-        setProductos((prev) => prev.filter((p) => p.id !== id));
-        } catch (error) {
-        console.error("Error al eliminar producto:", error);
-        }
-    };
-
-    useEffect(() => {
-        fetchProductos();
-    }, []);
-
-    return (
-        <ProductosContext.Provider
-        value={{ productos, fetchProductos, agregarProducto, actualizarProducto, eliminarProducto }}
-        >
-        {children}
-        </ProductosContext.Provider>
-    );
-    };
+  return (
+    <ProductosContext.Provider
+      value={{ productos, fetchProductos, agregarProducto, actualizarProducto, eliminarProducto }}
+    >
+      {children}
+    </ProductosContext.Provider>
+  );
+};

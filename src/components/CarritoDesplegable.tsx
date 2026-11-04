@@ -7,6 +7,8 @@ import { ModalFactura } from "./ModalFactura";
 import { ArticuloManufacturado } from "../classes/ArticuloManufacturadoClass";
 import { ArticuloInsumo } from "../classes/ArticuloInsumoClass";
 import { Promocion } from "../classes/PromocionClass";
+import { urlDeImagen } from "../utils/imagen";
+import SelectorDomicilio from "./SelectorDomicilio";
 
 const obtenerPrecio = (item: ArticuloManufacturado | ArticuloInsumo | Promocion): number => {
   if ("precioPromocional" in item) {
@@ -18,8 +20,6 @@ const obtenerPrecio = (item: ArticuloManufacturado | ArticuloInsumo | Promocion)
 const CarritoDesplegable = () => {
   const navigate = useNavigate();
   const [showFactura, setShowFactura] = useState(false);
-  const [direccion, setDireccion] = useState("San Juan 456, Mendoza");
-  const [editandoDireccion, setEditandoDireccion] = useState(false);
 
   const {
     productos,
@@ -30,13 +30,17 @@ const CarritoDesplegable = () => {
     tipoEntrega,
     setTipoEntrega,
     deliveryCosto,
+    descuentoRetiro,
+    domicilioSeleccionado,
+    setDomicilioSeleccionado,
   } = useCarrito();
-
-  const direccionActual =
-    tipoEntrega === "tienda" ? "Córdoba 123, Ciudad, Mendoza" : direccion;
 
   return (
     <div className="fixed right-6 top-20 bg-white backdrop-blur-md rounded-xl p-6 w-[340px] h-[550px] shadow-lg text-black z-50 flex flex-col">
+      {/* Fuera de la rama vacío/con-productos: crear el pedido vacía el carrito, y si el
+          modal viviera adentro de esa rama se desmontaría a mitad de la confirmación. */}
+      {showFactura && <ModalFactura onClose={() => setShowFactura(false)} />}
+
       {productos.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full">
           <FiShoppingCart className="text-4xl mb-4" />
@@ -52,20 +56,26 @@ const CarritoDesplegable = () => {
         </div>
       ) : (
         <>
+          {/* Todo lo que puede crecer (ítems + selector de dirección) scrollea acá adentro;
+              el resumen de abajo queda siempre fijo y visible gracias al mt-auto. */}
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-thin">
           {/* MI ORDEN */}
           <div className="mb-4">
             <h2 className="text-lg font-semibold mb-4">MI ORDEN</h2>
-            <div className="max-h-[200px] overflow-y-auto pr-1 scrollbar-thin">
+            <div className="pr-1">
               {productos.map((prod) => (
                 <div
                   key={prod.idUnico}
                   className="flex items-center justify-between mb-4"
                 >
-                  <img
-                    src={`/assets/img/${prod.item.imagen}`}
-                    alt={prod.item.denominacion}
-                    className="w-14 h-14 rounded-md object-cover"
-                  />
+                  {urlDeImagen(prod.item.imagen) && (
+                    <img
+                      src={urlDeImagen(prod.item.imagen)!}
+                      alt={prod.item.denominacion}
+                      onError={(e) => (e.currentTarget.style.display = "none")}
+                      className="w-14 h-14 rounded-md object-cover"
+                    />
+                  )}
                   <div className="flex-1 mx-3">
                     <p className="text-sm font-semibold">
                       {prod.item.denominacion}
@@ -99,10 +109,7 @@ const CarritoDesplegable = () => {
             <h3 className="text-md font-semibold mb-2">ENTREGA</h3>
             <div className="flex gap-3 mb-3">
               <button
-                onClick={() => {
-                  setTipoEntrega("tienda");
-                  setEditandoDireccion(false);
-                }}
+                onClick={() => setTipoEntrega("tienda")}
                 className={`px-3 py-1 rounded-full text-sm ${
                   tipoEntrega === "tienda" ? "bg-amber-700" : "bg-white/20"
                 }`}
@@ -110,10 +117,7 @@ const CarritoDesplegable = () => {
                 EN TIENDA
               </button>
               <button
-                onClick={() => {
-                  setTipoEntrega("delivery");
-                  setEditandoDireccion(false);
-                }}
+                onClick={() => setTipoEntrega("delivery")}
                 className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${
                   tipoEntrega === "delivery" ? "bg-amber-700" : "bg-white/20"
                 }`}
@@ -132,29 +136,23 @@ const CarritoDesplegable = () => {
               </span>
             </div>
 
-            <div className="flex items-center justify-between">
+            {tipoEntrega === "tienda" ? (
               <div className="flex items-center gap-2">
                 <FiMapPin />
-                {tipoEntrega === "delivery" && editandoDireccion ? (
-                  <input
-                    type="text"
-                    value={direccion}
-                    onChange={(e) => setDireccion(e.target.value)}
-                    className="border px-2 py-1 text-sm rounded-md"
-                  />
-                ) : (
-                  <span className="text-sm">{direccionActual}</span>
-                )}
+                <span className="text-sm">Retirás en el local</span>
               </div>
-              {tipoEntrega === "delivery" && (
-                <button
-                  onClick={() => setEditandoDireccion(!editandoDireccion)}
-                  className="text-sm border px-2 py-1 rounded-md"
-                >
-                  {editandoDireccion ? "GUARDAR" : "EDITAR"}
-                </button>
-              )}
-            </div>
+            ) : (
+              <div className="flex items-start gap-2">
+                <FiMapPin className="mt-1 shrink-0" />
+                <div className="flex-1 text-black">
+                  <SelectorDomicilio
+                    seleccionado={domicilioSeleccionado}
+                    onSeleccionar={setDomicilioSeleccionado}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
           </div>
 
           {/* RESUMEN Y ACCIONES */}
@@ -163,10 +161,18 @@ const CarritoDesplegable = () => {
               <span>SUBTOTAL:</span>
               <span>${subtotal.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between text-sm mb-1">
-              <span>DELIVERY:</span>
-              <span>${deliveryCosto.toLocaleString()}</span>
-            </div>
+            {tipoEntrega === "tienda" && descuentoRetiro > 0 && (
+              <div className="flex justify-between text-sm mb-1 text-green-700">
+                <span>DESCUENTO RETIRO (10%):</span>
+                <span>-${descuentoRetiro.toLocaleString()}</span>
+              </div>
+            )}
+            {tipoEntrega === "delivery" && (
+              <div className="flex justify-between text-sm mb-1">
+                <span>DELIVERY:</span>
+                <span>{deliveryCosto === null ? "A confirmar" : `$${deliveryCosto.toLocaleString()}`}</span>
+              </div>
+            )}
             <div className="flex justify-between text-base font-semibold mb-4">
               <span>TOTAL:</span>
               <span>${total.toLocaleString()}</span>
@@ -178,16 +184,6 @@ const CarritoDesplegable = () => {
             >
               CONTINUAR
             </button>
-
-            {showFactura && (
-              <ModalFactura
-                onClose={() => setShowFactura(false)}
-                direccion={direccionActual}
-                handlePagoMercadoPago={() => {
-                  throw new Error("Function not implemented.");
-                }}
-              />
-            )}
           </div>
         </>
       )}

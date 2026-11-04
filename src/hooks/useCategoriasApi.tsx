@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Categoria } from '../classes/CategoriaClass';
 import type { CategoriaDto } from '../pages/Categorias';
+import { apiFetchJson } from '../api/client';
 
 export function useCategoriasApi() {
     const [categorias, setCategorias] = useState<Categoria[]>([]);
 
     const cargarCategorias = async () => {
         try {
-        const res = await fetch('http://localhost:8080/categoria/all');
-        if (!res.ok) throw new Error('Error al cargar categorías');
-        const data = await res.json();
+        const data = await apiFetchJson<any[]>('/categoria/all');
         const categoriasFormateadas = data.map((c: any) =>
-            new Categoria(c.denominacion, c.categoriaPadre, c.id)
+            new Categoria(c.denominacion, c.categoriaPadre, c.id, c.tipo)
         );
         setCategorias(categoriasFormateadas);
         } catch (error) {
@@ -21,13 +20,8 @@ export function useCategoriasApi() {
 
     const cargarSubcategorias = async (padreId: number) => {
         try {
-            const res = await fetch(`http://localhost:8080/categoria/hijas/${padreId}`);
-            if (!res.ok) throw new Error('Error al cargar subcategorías');
-            const data = await res.json();
-            const subcategoriasFormateadas = data.map((c: any) =>
-            new Categoria(c.denominacion, c.categoriaPadre, c.id)
-            );
-            return subcategoriasFormateadas;
+            const data = await apiFetchJson<any[]>(`/categoria/hijas/${padreId}`);
+            return data.map((c: any) => new Categoria(c.denominacion, c.categoriaPadre, c.id, c.tipo));
         } catch (error) {
             console.error('Error al cargar subcategorías:', error);
             return [];
@@ -35,57 +29,46 @@ export function useCategoriasApi() {
     };
 
     const agregarCategoria = async (nueva: CategoriaDto) => {
-        try {
-        const res = await fetch('http://localhost:8080/categoria/crear', {
+        const categoriaGuardada = await apiFetchJson<any>('/categoria/crear', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(nueva),
+            body: JSON.stringify({
+                denominacion: nueva.denominacion,
+                idCategoriaPadre: nueva.categoriaPadreId,
+                tipo: nueva.tipo,
+            }),
         });
-        if (!res.ok) throw new Error('Error al guardar categoría');
-        const categoriaGuardada = await res.json();
         const nuevaInstancia = new Categoria(
-            categoriaGuardada.denominacion,
+            categoriaGuardada.denominacion ?? categoriaGuardada.nombre,
             categoriaGuardada.categoriaPadre,
-            categoriaGuardada.id
+            categoriaGuardada.id,
+            categoriaGuardada.tipo
         );
         setCategorias(prev => [...prev, nuevaInstancia]);
-        } catch (error) {
-        console.error('Error al agregar categoría:', error);
-        }
     };
 
     const eliminarCategoria = async (id: number) => {
-        try {
-        const res = await fetch(`http://localhost:8080/categoria/${id}`, {
-            method: 'DELETE',
-        });
-        if (!res.ok) throw new Error('Error al eliminar categoría');
+        await apiFetchJson(`/categoria/${id}`, { method: 'DELETE' });
         setCategorias(prev => prev.filter(cat => cat.id !== id));
-        } catch (error) {
-        console.error('Error al eliminar categoría:', error);
-        }
     };
 
     const editarCategoria = async (id: number, datosActualizados: CategoriaDto) => {
-        try {
-        const res = await fetch(`http://localhost:8080/categoria/${id}`, {
+        const actualizada = await apiFetchJson<any>(`/categoria/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(datosActualizados),
+            body: JSON.stringify({
+                denominacion: datosActualizados.denominacion,
+                idCategoriaPadre: datosActualizados.categoriaPadreId,
+                tipo: datosActualizados.tipo,
+            }),
         });
-        if (!res.ok) throw new Error('Error al editar categoría');
-        const actualizada = await res.json();
         const categoriaActualizada = new Categoria(
-            actualizada.denominacion,
+            actualizada.denominacion ?? actualizada.nombre,
             actualizada.categoriaPadre,
-            actualizada.id
+            actualizada.id,
+            actualizada.tipo
         );
         setCategorias(prev =>
             prev.map(cat => (cat.id === id ? categoriaActualizada : cat))
         );
-        } catch (error) {
-        console.error('Error al editar categoría:', error);
-        }
     };
 
     useEffect(() => {

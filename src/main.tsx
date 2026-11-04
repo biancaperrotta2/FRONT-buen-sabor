@@ -6,7 +6,7 @@ import App from "./AppRoutes.tsx";
 import { initMercadoPago } from "@mercadopago/sdk-react";
 import { AuthProvider } from "./context/AuthContext"; // 👈 IMPORTANTE
 
-const publicKey = "APP_USR-3ba36729-737f-42ac-a8c0-b38ecf501780";
+const publicKey = import.meta.env.VITE_MP_PUBLIC_KEY;
 
 initMercadoPago(publicKey, { locale: "es-AR" });
 

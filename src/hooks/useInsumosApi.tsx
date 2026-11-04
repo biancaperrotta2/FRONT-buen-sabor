@@ -1,53 +1,43 @@
 import { useState, useEffect } from "react";
 import { ArticuloInsumo } from "../classes/ArticuloInsumoClass";
 import { UnidadMedida } from "../classes/UnidadMedidaClass";
-import { Categoria } from "../classes/CategoriaClass";
 import type { InsumoRecord } from "../components/FormularioInsumo";
 import type { InsumoDto } from "../pages/Insumo";
+import { apiFetchJson } from "../api/client";
+import { useTablaServidor } from "./useTablaServidor";
+import { construirQueryTabla, type PageResponse, type ParametrosTabla } from "../services/paginacion";
+
+function instanciarInsumo(item: any): ArticuloInsumo {
+    return new ArticuloInsumo(
+        item.denominacion,
+        item.precioVenta,
+        item.unidadMedida,
+        item.categoria,
+        item.precioCompra,
+        item.stockActual,
+        item.stockMaximo,
+        item.esParaElaborar,
+        item.imagenUrl,
+        item.activo,
+        item.id,
+        item.margen,
+        item.stockMinimo
+    );
+}
+
+async function fetchInsumosPagina(params: ParametrosTabla): Promise<PageResponse<ArticuloInsumo>> {
+    const respuesta = await apiFetchJson<PageResponse<any>>(`/insumos/all?${construirQueryTabla(params)}`);
+    return { ...respuesta, contenido: respuesta.contenido.map(instanciarInsumo) };
+}
 
 export function useInsumosApi() {
-    const [insumos, setInsumos] = useState<ArticuloInsumo[]>([]);
+    const tabla = useTablaServidor<ArticuloInsumo>(fetchInsumosPagina);
     const [unidadesMedida, setUnidadesMedida] = useState<UnidadMedida[]>([]);
 
-    const fetchInsumos = async () => {
-        try {
-        const res = await fetch("http://localhost:8080/articulo-insumo/all");
-        if (!res.ok) throw new Error("Error al obtener insumos");
-        const data = await res.json();
-        const instancias = data.map(
-            (item: any) =>
-            new ArticuloInsumo(
-                item.denominacion,
-                item.precioVenta,
-                item.precioCompra,
-                item.stockActual,
-                item.stockMaximo,
-                item.esParaElaborar,
-                item.unidadMedida,
-                item.categoria,
-                item.id
-            )
-        );
-        setInsumos(instancias);
-        } catch (error) {
-        console.error("Error al obtener insumos:", error);
-        }
-    };
-
     const fetchUnidadesMedida = async () => {
-        console.log("BUSCANDO UNIDADES DE MEDIDA")
         try {
-        const res = await fetch("http://localhost:8080/unidad-medida/all");
-        if (!res.ok) throw new Error("Error al obtener unidades de medida");
-        const data = await res.json();
-        const instancias = data.map(
-            (item: any) =>
-            new UnidadMedida(
-                item.denominacion,
-                item.id,
-            )
-        );
-        console.log("Unidades obtenidas:", instancias);
+        const data = await apiFetchJson<any[]>("/unidad-medida/all");
+        const instancias = data.map((item: any) => new UnidadMedida(item.denominacion, item.id));
         setUnidadesMedida(instancias);
         } catch (error) {
         console.error("Error al obtener unidades de medida:", error);
@@ -55,93 +45,99 @@ export function useInsumosApi() {
     };
 
     const agregarInsumo = async (nuevo: InsumoDto) => {
-
         const insumoNew: InsumoRecord = {
             denominacion: nuevo.denominacion,
             precioVenta: Number(nuevo.precioVenta),
             precioCompra: Number(nuevo.precioCompra),
+            margen: nuevo.margen,
             stockActual: Number(nuevo.stockActual),
+            stockMinimo: Number(nuevo.stockMinimo ?? 0),
             stockMaximo: Number(nuevo.stockMaximo),
             esParaElaborar: nuevo.esParaElaborar,
             unidadMedida: nuevo.unidadMedida,
+            imagenUrl: nuevo.imagenUrl ?? null,
             categoria: {
                 denominacion: nuevo.categoria.denominacion,
-                categoriaPadreId: nuevo.categoria.categoriaPadre?.id || null
-                }
-        }
-        console.log(insumoNew)
-        try {
-            
-        const res = await fetch("http://localhost:8080/articulo-insumo/crear", {
+                categoriaPadreId: nuevo.categoria.id ?? null,
+            },
+        };
+        await apiFetchJson<any>("/insumos", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(insumoNew),
+            body: JSON.stringify(traducirParaBackend(insumoNew)),
         });
-        if (!res.ok) throw new Error("Error al agregar insumo");
-        const data: ArticuloInsumo = await res.json();
-        const categoria = new Categoria(
-            data.categoria.denominacion,
-            data.categoria.categoriaPadre,
-            data.categoria.id
-        );
-        const nuevoInsumo = new ArticuloInsumo(
-            data.denominacion,
-            data.precioVenta,
-            data.precioCompra,
-            data.stockActual,
-            data.stockMaximo,
-            data.esParaElaborar,
-            data.unidadMedida,
-            categoria,
-            data.id
-        );
-        setInsumos((prev) => [...prev, nuevoInsumo]);
-        } catch (error) {
-        console.error("Error al agregar insumo:", error);
-        }
+        tabla.recargar();
     };
 
-    const editarInsumo = async (id: number, actualizado: ArticuloInsumo) => {
-        try {
-        const res = await fetch(`http://localhost:8080/articulo-insumo/actualizar/${id}`, {
+    const editarInsumo = async (id: number, actualizado: InsumoDto) => {
+        await apiFetchJson(`/insumos/${id}`, {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(actualizado),
+            body: JSON.stringify(traducirParaBackend({
+                denominacion: actualizado.denominacion,
+                precioVenta: actualizado.precioVenta,
+                precioCompra: actualizado.precioCompra,
+                margen: actualizado.margen,
+                stockActual: actualizado.stockActual,
+                stockMinimo: actualizado.stockMinimo ?? 0,
+                stockMaximo: actualizado.stockMaximo,
+                esParaElaborar: actualizado.esParaElaborar,
+                unidadMedida: actualizado.unidadMedida,
+                imagenUrl: actualizado.imagenUrl ?? null,
+                categoria: {
+                    denominacion: actualizado.categoria.denominacion,
+                    categoriaPadreId: actualizado.categoria.id ?? null,
+                },
+            })),
         });
-        if (!res.ok) throw new Error("Error al actualizar insumo");
-        await res.json();
-        setInsumos((prev) =>
-            prev.map((item) => (item.id === id ? { ...actualizado, id } : item))
-        );
-        } catch (error) {
-        console.error("Error al actualizar insumo:", error);
-        }
+        tabla.recargar();
     };
 
     const eliminarInsumo = async (id: number) => {
-        try {
-        const res = await fetch(`http://localhost:8080/articulo-insumo/eliminar/${id}`, {
-            method: "DELETE",
-        });
-        if (!res.ok) throw new Error("Error al eliminar insumo");
-        setInsumos((prev) => prev.filter((item) => item.id !== id));
-        } catch (error) {
-        console.error("Error al eliminar insumo:", error);
-        }
+        await apiFetchJson(`/insumos/${id}`, { method: "DELETE" });
+        tabla.recargar();
     };
 
     useEffect(() => {
-        fetchInsumos();
         fetchUnidadesMedida();
     }, []);
 
     return {
-        insumos,
+        insumos: tabla.datos?.contenido ?? [],
+        datosPagina: tabla.datos,
+        busqueda: tabla.busqueda,
+        setBusqueda: tabla.setBusqueda,
+        pagina: tabla.pagina,
+        setPagina: tabla.setPagina,
+        ordenarPor: tabla.ordenarPor,
+        direccion: tabla.direccion,
+        alClickearColumna: tabla.alClickearColumna,
+        cargandoInsumos: tabla.cargando,
+        errorInsumos: tabla.error,
         unidadesMedida,
-        fetchInsumos,
+        fetchInsumos: tabla.recargar,
         fetchUnidadesMedida,
         agregarInsumo,
         editarInsumo,
         eliminarInsumo,
+    };
+}
+
+// El backend espera "categoria.idCategoriaPadre", el front lo maneja como "categoriaPadreId"
+function traducirParaBackend(insumo: InsumoRecord) {
+    return {
+        denominacion: insumo.denominacion,
+        precioVenta: insumo.precioVenta,
+        precioCompra: insumo.precioCompra,
+        margen: insumo.margen,
+        stockActual: insumo.stockActual,
+        stockMinimo: insumo.stockMinimo,
+        stockMaximo: insumo.stockMaximo,
+        esParaElaborar: insumo.esParaElaborar,
+        unidadMedida: insumo.unidadMedida,
+        // Lista completa de fotos deseada: [] quita la que hubiera (ver ImagenesArticulo).
+        imagenes: insumo.imagenUrl ? [{ denominacion: insumo.denominacion, url: insumo.imagenUrl }] : [],
+        categoria: {
+            denominacion: insumo.categoria.denominacion,
+            idCategoriaPadre: insumo.categoria.categoriaPadreId,
+        },
     };
 }
