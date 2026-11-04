@@ -5,6 +5,7 @@ import { ApiError } from "../api/client";
 import {
   cambiarEstadoPedido,
   pedidosParaCocina,
+  type ItemCocina,
   type PedidoCocina,
 } from "../services/pedidoService";
 
@@ -20,6 +21,41 @@ const estaAtrasado = (horaEstimada: string) => {
   const estimada = new Date(ahora);
   estimada.setHours(h, m, 0, 0);
   return ahora > estimada;
+};
+
+// Producto del pedido; en un combo se listan debajo los productos que incluye.
+const LineaItem = ({ item }: { item: ItemCocina }) => {
+  const [verPreparacion, setVerPreparacion] = useState(false);
+  return (
+    <li>
+      <div className="flex items-start justify-between gap-2">
+        <span>
+          <span className="font-semibold">{item.cantidad} ×</span> {item.nombre}
+        </span>
+        {item.preparacion && (
+          <button
+            type="button"
+            onClick={() => setVerPreparacion((v) => !v)}
+            className="shrink-0 text-xs text-amber-700 border border-amber-700 rounded px-2 py-0.5 hover:bg-amber-50"
+          >
+            {verPreparacion ? "Ocultar preparación" : "Ver preparación"}
+          </button>
+        )}
+      </div>
+      {verPreparacion && item.preparacion && (
+        <p className="text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded p-2 mt-1 whitespace-pre-line">
+          {item.preparacion}
+        </p>
+      )}
+      {item.incluye.length > 0 && (
+        <ul className="ml-5 mt-1 space-y-1 border-l-2 border-amber-200 pl-3 text-gray-700">
+          {item.incluye.map((sub, i) => (
+            <LineaItem key={i} item={sub} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
 };
 
 export const Cocina = () => {
@@ -129,6 +165,16 @@ export const Cocina = () => {
                     {formatearHora(pedido.horaEstimadaFinalizacion)}
                     {pedido.estadoPedido === "DEMORADO" && " · Ya demorado antes"}
                   </p>
+                  <ul className="text-sm space-y-1 mb-3">
+                    {pedido.items.map((item, i) => (
+                      <LineaItem key={i} item={item} />
+                    ))}
+                  </ul>
+                  {pedido.aclaraciones && (
+                    <p className="text-sm bg-yellow-50 border border-yellow-300 rounded-md p-2 mb-3">
+                      <span className="font-semibold">Aclaraciones:</span> {pedido.aclaraciones}
+                    </p>
+                  )}
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleCambiarEstado(pedido.id, "DEMORADO")}

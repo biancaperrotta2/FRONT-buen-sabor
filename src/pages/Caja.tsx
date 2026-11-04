@@ -158,6 +158,9 @@ export const Caja = () => {
                       {pedido.cliente.nombre} {pedido.cliente.apellido}
                     </p>
                   )}
+                  {pedido.aclaraciones && (
+                    <p className="text-sm text-gray-700 italic">Aclaraciones: {pedido.aclaraciones}</p>
+                  )}
                   <p
                     className={`text-sm text-gray-500 ${
                       pedido.formaPago === "MERCADO_PAGO" && pedido.estadoPago !== "PAGADO"
@@ -222,6 +225,9 @@ export const Caja = () => {
                     <p className="text-sm text-gray-600">
                       {pedido.cliente.nombre} {pedido.cliente.apellido}
                     </p>
+                  )}
+                  {pedido.aclaraciones && (
+                    <p className="text-sm text-gray-700 italic">Aclaraciones: {pedido.aclaraciones}</p>
                   )}
                   <p className="text-sm text-gray-500 mb-3">
                     {pedido.formaPago === "MERCADO_PAGO"

@@ -68,6 +68,7 @@ export interface PedidoRequestApi {
   formaPago: FormaPagoApi;
   idDomicilio?: number | null;
   aclaracionDomicilio?: string;
+  aclaraciones?: string;
 }
 
 export interface PedidoCreado {
@@ -194,12 +195,22 @@ export function verificarPagoMercadoPago(idPedido: number): Promise<Verificacion
 
 // --- Cocinero ---
 
+// Si es una promoción, "incluye" trae lo que hay que preparar (cantidades ya multiplicadas).
+export interface ItemCocina {
+  nombre: string;
+  cantidad: number;
+  preparacion: string | null;
+  incluye: ItemCocina[];
+}
+
 export interface PedidoCocina {
   id: number;
   cliente: { id: number; nombre: string; apellido: string } | null;
   horaEstimadaFinalizacion: string;
   tipoEnvio: TipoEnvioApi;
   estadoPedido: EstadoPedidoApi;
+  aclaraciones: string | null;
+  items: ItemCocina[];
 }
 
 // EN_PROCESO + DEMORADO, ya ordenados por hora estimada (más urgente primero).
@@ -228,6 +239,7 @@ export interface PedidoCaja {
   estadoPago: EstadoPagoApi;
   total: number;
   horaEstimadaFinalizacion: string;
+  aclaraciones: string | null;
 }
 
 // Pedidos recién ingresados que el cajero todavía no aceptó.

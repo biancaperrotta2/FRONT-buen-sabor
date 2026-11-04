@@ -15,6 +15,9 @@ import {
   type PreferenciaPago,
 } from "../services/pedidoService";
 
+// Mismo límite que valida el backend (PedidoRequest.aclaraciones).
+const MAX_ACLARACIONES = 255;
+
 interface Props {
   onClose: () => void;
 }
@@ -46,6 +49,7 @@ export const ModalFactura = ({ onClose }: Props) => {
   const [preferenciaPago, setPreferenciaPago] = useState<PreferenciaPago | null>(null);
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aclaraciones, setAclaraciones] = useState("");
 
   const handleConfirmar = async () => {
     setError(null);
@@ -64,6 +68,7 @@ export const ModalFactura = ({ onClose }: Props) => {
         tipoEnvio: tipoEntrega === "delivery" ? "DELIVERY" : "TAKE_AWAY",
         formaPago: pago === "tarjeta" ? "MERCADO_PAGO" : "EFECTIVO",
         idDomicilio: tipoEntrega === "delivery" ? domicilioSeleccionado?.id ?? null : null,
+        aclaraciones: aclaraciones.trim() || undefined,
       });
 
       vaciarCarrito();
@@ -100,7 +105,7 @@ export const ModalFactura = ({ onClose }: Props) => {
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999]">
-      <div className="bg-white rounded-lg p-6 w-[420px] relative shadow-xl text-black">
+      <div className="bg-white rounded-lg p-6 w-[420px] max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto relative shadow-xl text-black">
         <button onClick={onClose} className="absolute top-3 right-3">
           <MdClose className="text-xl" />
         </button>
@@ -155,6 +160,24 @@ export const ModalFactura = ({ onClose }: Props) => {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="text-sm mb-4">
+              <label htmlFor="aclaraciones" className="font-medium block mb-2">
+                Agregar aclaraciones <span className="text-gray-500 font-normal">(opcional)</span>
+              </label>
+              <textarea
+                id="aclaraciones"
+                value={aclaraciones}
+                onChange={(e) => setAclaraciones(e.target.value)}
+                maxLength={MAX_ACLARACIONES}
+                rows={2}
+                placeholder="Ej: sin cebolla, la pizza bien cocida"
+                className="w-full border border-gray-300 rounded-md p-2 resize-none"
+              />
+              <p className="text-xs text-gray-500 text-right">
+                {aclaraciones.length}/{MAX_ACLARACIONES}
+              </p>
             </div>
 
             <div className="text-sm mb-4">
