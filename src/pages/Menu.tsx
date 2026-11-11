@@ -1,5 +1,4 @@
 import { Footer } from "../components/Footer";
-import NavCategorias from "../components/NavCategorias";
 import ContenedorMenu from "../components/ContenedorMenu";
 import Header from "../components/Header";
 
@@ -13,12 +12,9 @@ export const MenuPage = () => {
         {/* Capa oscura */}
         <div className="absolute inset-0 bg-black/20 z-0" />
 
-        {/* Contenido principal */}
-        <div className="relative z-10 flex flex-col gap-2">
-          <NavCategorias />
-          <div className="overflow-y-scroll scrollbar-hide h-[600px]">
-            <ContenedorMenu />
-          </div>
+        {/* Contenido principal: buscador, categorías y grilla (ver ContenedorMenu) */}
+        <div className="relative z-10">
+          <ContenedorMenu />
         </div>
       </section>
 

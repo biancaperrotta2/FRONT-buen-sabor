@@ -9,6 +9,8 @@ export abstract class Articulo {
   unidadMedida: UnidadMedida;
   categoria: Categoria;
   imagen: string;
+  // Solo lo informa el menú público: false = sin stock para vender 1 (tarjeta "Sin stock").
+  disponible: boolean = true;
 
   constructor(
     denominacion: string,

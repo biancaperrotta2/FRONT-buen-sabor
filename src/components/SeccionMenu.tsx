@@ -17,13 +17,7 @@ const SeccionMenu = ({ titulo, productos, onProductoClick }: Props) => {
       <h2 className="text-xl font-bold text-gray-800 mb-4">{titulo}</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {productos.map((producto) => (
-          <div
-            key={producto.id}
-            onClick={() => onProductoClick(producto)}
-            className="cursor-pointer"
-          >
-            <CardMenu producto={producto} />
-          </div>
+          <CardMenu key={producto.id} producto={producto} onClick={() => onProductoClick(producto)} />
         ))}
       </div>
     </section>
@@ -31,4 +25,3 @@ const SeccionMenu = ({ titulo, productos, onProductoClick }: Props) => {
 };
 
 export default SeccionMenu;
-

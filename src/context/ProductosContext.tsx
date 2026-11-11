@@ -43,8 +43,8 @@ export const useProductos = () => {
   return context;
 };
 
-export const mapearBase = (item: any) =>
-  new ArticuloManufacturado(
+export const mapearBase = (item: any) => {
+  const producto = new ArticuloManufacturado(
     item.denominacion,
     item.precioVenta,
     item.unidadMedida ?? new UnidadMedida(""),
@@ -57,6 +57,9 @@ export const mapearBase = (item: any) =>
     item.activo ?? true,
     item.id
   );
+  producto.disponible = item.disponible ?? true;
+  return producto;
+};
 
 const mapearFull = (item: any) =>
   new ArticuloManufacturado(

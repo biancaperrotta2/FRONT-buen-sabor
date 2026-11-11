@@ -13,6 +13,8 @@ export interface PromocionAdminRow {
   descripcionDescuento: string;
   urlImagen: string | null;
   activo: boolean;
+  // Solo en la lista pública del menú: false = sin stock de algo que incluye.
+  disponible?: boolean;
 }
 
 export interface PromocionDetalleFull {
@@ -57,21 +59,22 @@ export interface PromocionRequestDto {
 // Promociones vigentes para el menú público del cliente.
 export async function listarPromocionesVigentes(): Promise<Promocion[]> {
   const data = await apiFetchJson<PromocionAdminRow[]>("/promociones");
-  return data.map(
-    (p) =>
-      new Promocion(
-        p.nombre,
-        "",
-        "",
-        "",
-        "",
-        p.descripcionDescuento,
-        p.precioVenta,
-        urlDeImagen(p.urlImagen) ?? "",
-        new TipoPromocion(""),
-        p.id
-      )
-  );
+  return data.map((p) => {
+    const promocion = new Promocion(
+      p.nombre,
+      "",
+      "",
+      "",
+      "",
+      p.descripcionDescuento,
+      p.precioVenta,
+      urlDeImagen(p.urlImagen) ?? "",
+      new TipoPromocion(""),
+      p.id
+    );
+    promocion.disponible = p.disponible ?? true;
+    return promocion;
+  });
 }
 
 // Para la tabla de admin "Promociones": búsqueda + paginado + orden.

@@ -11,6 +11,8 @@
     precioPromocional: number;
     imagen: string;
     tipoPromocion: TipoPromocion;
+    // false = falta stock de algo que incluye (tarjeta "Sin stock" en el menú).
+    disponible: boolean = true;
 
     constructor(
       denominacion: string,

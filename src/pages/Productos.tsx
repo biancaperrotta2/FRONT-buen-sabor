@@ -1,7 +1,6 @@
 import React from "react";
 import UsuarioLanding from "../components/UsuarioLanding";
 import Header from "../components/Header";
-import NavCategorias from "../components/NavCategorias";
 import ContenedorMenu from "../components/ContenedorMenu";
 import Footer from "../components/Footer";
 import CarritoDesplegable from "../components/CarritoDesplegable";
