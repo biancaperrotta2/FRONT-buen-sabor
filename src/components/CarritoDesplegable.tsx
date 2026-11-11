@@ -20,11 +20,13 @@ const obtenerPrecio = (item: ArticuloManufacturado | ArticuloInsumo | Promocion)
 const CarritoDesplegable = () => {
   const navigate = useNavigate();
   const [showFactura, setShowFactura] = useState(false);
+  const [confirmarCancelacion, setConfirmarCancelacion] = useState(false);
 
   const {
     productos,
     actualizarCantidad,
     eliminarProducto,
+    vaciarCarrito,
     subtotal,
     total,
     tipoEntrega,
@@ -40,6 +42,39 @@ const CarritoDesplegable = () => {
       {/* Fuera de la rama vacío/con-productos: crear el pedido vacía el carrito, y si el
           modal viviera adentro de esa rama se desmontaría a mitad de la confirmación. */}
       {showFactura && <ModalFactura onClose={() => setShowFactura(false)} />}
+
+      {/* Confirmación dentro del propio panel: el backdrop-blur del panel hace que un modal
+          "fixed" hijo quede encerrado en él, así que se superpone al panel en vez de a la página. */}
+      {confirmarCancelacion && (
+        <div
+          className="absolute inset-0 z-10 bg-white/95 rounded-xl flex flex-col items-center justify-center p-6 text-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="titulo-cancelar-pedido"
+        >
+          <p id="titulo-cancelar-pedido" className="text-lg font-semibold mb-2">
+            ¿Vaciar tu orden?
+          </p>
+          <p className="text-sm text-gray-600 mb-6">Se van a quitar todos los productos del carrito.</p>
+          <div className="w-full space-y-2">
+            <button
+              onClick={() => {
+                vaciarCarrito();
+                setConfirmarCancelacion(false);
+              }}
+              className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-md font-bold text-sm"
+            >
+              SÍ, CANCELAR PEDIDO
+            </button>
+            <button
+              onClick={() => setConfirmarCancelacion(false)}
+              className="w-full border border-gray-300 text-gray-700 hover:bg-gray-50 py-2 rounded-md font-bold text-sm"
+            >
+              SEGUIR COMPRANDO
+            </button>
+          </div>
+        </div>
+      )}
 
       {productos.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full">
@@ -183,6 +218,12 @@ const CarritoDesplegable = () => {
               className="w-full bg-amber-700 text-white py-2 rounded-md font-bold text-sm mb-2"
             >
               CONTINUAR
+            </button>
+            <button
+              onClick={() => setConfirmarCancelacion(true)}
+              className="w-full border border-red-600 text-red-600 hover:bg-red-50 py-2 rounded-md font-bold text-sm mb-2"
+            >
+              CANCELAR PEDIDO
             </button>
           </div>
         </>
