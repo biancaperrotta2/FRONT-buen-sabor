@@ -38,6 +38,7 @@ const ESTADO_PAGO_LABEL: Record<EstadoPagoApi, string> = {
   PENDIENTE: "Pago pendiente",
   PAGADO: "Pagado",
   RECHAZADO: "Pago rechazado",
+  REINTEGRADO: "Pago reintegrado",
 };
 
 const formatearFecha = (fecha: string) => {

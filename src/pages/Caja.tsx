@@ -8,12 +8,98 @@ import {
   verificarPagoMercadoPago,
   pedidosParaEntregarEnLocal,
   pedidosPendientes,
+  rechazarPedido,
   type PedidoCaja,
 } from "../services/pedidoService";
 
 const INTERVALO_ACTUALIZACION_MS = 15000;
 
 const formatearHora = (hora: string) => hora.slice(0, 5);
+
+// Mismo límite que valida el backend (RechazoPedidoRequest.motivo).
+const MAX_MOTIVO = 255;
+
+interface PropsRechazo {
+  pedido: PedidoCaja;
+  onCancelar: () => void;
+  onRechazado: () => void;
+}
+
+// Diálogo del botón "Rechazar": el motivo es obligatorio porque es lo que ve el cliente.
+const DialogoRechazo = ({ pedido, onCancelar, onRechazado }: PropsRechazo) => {
+  const [motivo, setMotivo] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const seReintegra = pedido.formaPago === "MERCADO_PAGO" && pedido.estadoPago === "PAGADO";
+
+  const confirmar = async () => {
+    if (!motivo.trim()) {
+      setError("Escribí el motivo del rechazo.");
+      return;
+    }
+    setEnviando(true);
+    setError(null);
+    try {
+      await rechazarPedido(pedido.id, motivo.trim());
+      onRechazado();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "No pudimos rechazar el pedido.");
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="titulo-rechazo"
+    >
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <h3 id="titulo-rechazo" className="text-lg font-bold mb-1">
+          Rechazar pedido #{pedido.id}
+        </h3>
+        <p className="text-sm text-gray-600 mb-4">
+          El pedido queda cancelado y el cliente ve el motivo en "Mis pedidos".
+          {seReintegra && " Como ya está pagado, se le devuelve el pago por Mercado Pago."}
+        </p>
+        <label htmlFor="motivo-rechazo" className="text-sm font-medium block mb-1">
+          Motivo
+        </label>
+        <textarea
+          id="motivo-rechazo"
+          value={motivo}
+          onChange={(e) => setMotivo(e.target.value)}
+          maxLength={MAX_MOTIVO}
+          rows={3}
+          autoFocus
+          placeholder="Ej: no nos queda rúcula para la pizza"
+          className="w-full border border-gray-300 rounded-md p-2 text-sm resize-none"
+        />
+        <p className="text-xs text-gray-500 text-right mb-2">
+          {motivo.length}/{MAX_MOTIVO}
+        </p>
+        {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+        <div className="flex gap-2">
+          <button
+            onClick={onCancelar}
+            disabled={enviando}
+            className="flex-1 border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-2 rounded-md disabled:opacity-60"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={confirmar}
+            disabled={enviando}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-md disabled:opacity-60"
+          >
+            {enviando ? "Rechazando..." : "Rechazar pedido"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const Caja = () => {
   const navigate = useNavigate();
@@ -26,6 +112,7 @@ export const Caja = () => {
   const [procesando, setProcesando] = useState<number | null>(null);
   // Resultado de "Verificar pago" por pedido, para mostrarlo debajo de su tarjeta.
   const [avisoPago, setAvisoPago] = useState<Record<number, string>>({});
+  const [aRechazar, setARechazar] = useState<PedidoCaja | null>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -87,7 +174,9 @@ export const Caja = () => {
           ? "Mercado Pago todavía no registra ningún pago para este pedido."
           : r.estadoPago === "PAGADO"
             ? "Pago confirmado por Mercado Pago."
-            : r.estadoPago === "RECHAZADO"
+            : r.estadoPago === "REINTEGRADO"
+              ? "El pago fue devuelto al cliente."
+              : r.estadoPago === "RECHAZADO"
               ? "Mercado Pago rechazó el pago: el pedido se canceló."
               : "El pago sigue pendiente en Mercado Pago.",
       }));
@@ -128,6 +217,17 @@ export const Caja = () => {
           Cerrar sesión
         </button>
       </header>
+
+      {aRechazar && (
+        <DialogoRechazo
+          pedido={aRechazar}
+          onCancelar={() => setARechazar(null)}
+          onRechazado={() => {
+            setARechazar(null);
+            cargar();
+          }}
+        />
+      )}
 
       <div className="max-w-2xl mx-auto px-6 py-8 space-y-10">
         {error && (
@@ -191,13 +291,22 @@ export const Caja = () => {
                       {avisoPago[pedido.id]}
                     </p>
                   )}
-                  <button
-                    onClick={() => handleAceptar(pedido.id)}
-                    disabled={procesando === pedido.id}
-                    className="w-full bg-amber-700 hover:bg-amber-800 text-white font-semibold py-2 rounded-md disabled:opacity-60"
-                  >
-                    {procesando === pedido.id ? "Procesando..." : "Aceptar pedido"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setARechazar(pedido)}
+                      disabled={procesando === pedido.id}
+                      className="flex-1 bg-white border border-red-600 text-red-600 hover:bg-red-50 font-semibold py-2 rounded-md disabled:opacity-60"
+                    >
+                      Rechazar
+                    </button>
+                    <button
+                      onClick={() => handleAceptar(pedido.id)}
+                      disabled={procesando === pedido.id}
+                      className="flex-1 bg-amber-700 hover:bg-amber-800 text-white font-semibold py-2 rounded-md disabled:opacity-60"
+                    >
+                      {procesando === pedido.id ? "Procesando..." : "Aceptar pedido"}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

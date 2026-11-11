@@ -34,6 +34,7 @@ const ESTADO_PAGO_LABEL: Record<EstadoPagoApi, string> = {
   PENDIENTE: "Pago pendiente",
   PAGADO: "Pagado",
   RECHAZADO: "Pago rechazado",
+  REINTEGRADO: "Pago devuelto a tu Mercado Pago",
 };
 
 const formatearFecha = (fecha: string) => {
@@ -129,6 +130,12 @@ export const MisPedidos = () => {
                       {pedido.formaPago === "EFECTIVO" ? "Efectivo" : "Mercado Pago"}
                     </p>
                     <p className="text-sm text-gray-700 mt-1">{resumirProductos(pedido)}</p>
+                    {pedido.estadoPedido === "CANCELADO" && pedido.motivoCancelacion && (
+                      <p className="text-sm text-red-800 bg-red-50 border border-red-200 rounded-md p-2 mt-2" role="status">
+                        El local rechazó tu pedido: {pedido.motivoCancelacion}
+                        {pedido.estadoPago === "REINTEGRADO" && " Te devolvimos el pago a tu cuenta de Mercado Pago."}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <span

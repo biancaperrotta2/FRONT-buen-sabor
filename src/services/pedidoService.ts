@@ -114,7 +114,7 @@ export type EstadoPedidoApi =
   | "ENTREGADO"
   | "CANCELADO";
 
-export type EstadoPagoApi = "PENDIENTE" | "PAGADO" | "RECHAZADO";
+export type EstadoPagoApi = "PENDIENTE" | "PAGADO" | "RECHAZADO" | "REINTEGRADO";
 
 export interface DetallePedidoResumen {
   articuloManufacturado: { id: number; denominacion: string } | null;
@@ -136,6 +136,8 @@ export interface PedidoResumen {
   domicilioSnapshot: string;
   total: number;
   idFactura: number | null;
+  // Lo escribe el cajero al rechazar el pedido.
+  motivoCancelacion: string | null;
   detalles: DetallePedidoResumen[];
 }
 
@@ -240,6 +242,14 @@ export interface PedidoCaja {
   total: number;
   horaEstimadaFinalizacion: string;
   aclaraciones: string | null;
+}
+
+// Rechaza un pedido pendiente; si ya estaba pagado con Mercado Pago, el backend reintegra el pago.
+export function rechazarPedido(idPedido: number, motivo: string): Promise<unknown> {
+  return apiFetchJson(`/pedidos/${idPedido}/rechazar`, {
+    method: "PATCH",
+    body: JSON.stringify({ motivo }),
+  });
 }
 
 // Pedidos recién ingresados que el cajero todavía no aceptó.
