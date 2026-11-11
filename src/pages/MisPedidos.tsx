@@ -134,6 +134,7 @@ export const MisPedidos = () => {
                       <p className="text-sm text-red-800 bg-red-50 border border-red-200 rounded-md p-2 mt-2" role="status">
                         El local rechazó tu pedido: {pedido.motivoCancelacion}
                         {pedido.estadoPago === "REINTEGRADO" && " Te devolvimos el pago a tu cuenta de Mercado Pago."}
+                        {pedido.reintegroPendiente && " Te vamos a devolver el pago a tu cuenta de Mercado Pago."}
                       </p>
                     )}
                   </div>

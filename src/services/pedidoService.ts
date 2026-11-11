@@ -138,6 +138,8 @@ export interface PedidoResumen {
   idFactura: number | null;
   // Lo escribe el cajero al rechazar el pedido.
   motivoCancelacion: string | null;
+  // Rechazado ya cobrado por Mercado Pago, con la devolución todavía a cargo del local.
+  reintegroPendiente: boolean | null;
   detalles: DetallePedidoResumen[];
 }
 
@@ -245,11 +247,23 @@ export interface PedidoCaja {
 }
 
 // Rechaza un pedido pendiente; si ya estaba pagado con Mercado Pago, el backend reintegra el pago.
-export function rechazarPedido(idPedido: number, motivo: string): Promise<unknown> {
+// Con reintegroManual (cuando el reintegro automático falló) se rechaza igual y la devolución
+// queda pendiente, para hacerla desde el panel de Mercado Pago.
+export function rechazarPedido(idPedido: number, motivo: string, reintegroManual = false): Promise<unknown> {
   return apiFetchJson(`/pedidos/${idPedido}/rechazar`, {
     method: "PATCH",
-    body: JSON.stringify({ motivo }),
+    body: JSON.stringify({ motivo, reintegroManual }),
   });
+}
+
+// Rechazados ya cobrados por Mercado Pago cuya devolución está pendiente.
+export function reintegrosPendientes(): Promise<PedidoCaja[]> {
+  return apiFetchJson<PedidoCaja[]>("/pedidos/reintegros-pendientes");
+}
+
+// El cajero ya devolvió el pago desde el panel de Mercado Pago.
+export function marcarReintegrado(idPedido: number): Promise<unknown> {
+  return apiFetchJson(`/pedidos/${idPedido}/reintegro-manual`, { method: "PATCH" });
 }
 
 // Pedidos recién ingresados que el cajero todavía no aceptó.

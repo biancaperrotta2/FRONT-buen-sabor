@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../api/client";
+import { Modal } from "../components/Modal";
 import {
   cambiarEstadoPedido,
   confirmarCobroEfectivo,
@@ -9,6 +10,8 @@ import {
   pedidosParaEntregarEnLocal,
   pedidosPendientes,
   rechazarPedido,
+  reintegrosPendientes,
+  marcarReintegrado,
   type PedidoCaja,
 } from "../services/pedidoService";
 
@@ -30,9 +33,11 @@ const DialogoRechazo = ({ pedido, onCancelar, onRechazado }: PropsRechazo) => {
   const [motivo, setMotivo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // El reintegro automático falló: se ofrece rechazar igual y devolver desde el panel de MP.
+  const [fallaReintegro, setFallaReintegro] = useState(false);
   const seReintegra = pedido.formaPago === "MERCADO_PAGO" && pedido.estadoPago === "PAGADO";
 
-  const confirmar = async () => {
+  const confirmar = async (reintegroManual: boolean) => {
     if (!motivo.trim()) {
       setError("Escribí el motivo del rechazo.");
       return;
@@ -40,10 +45,11 @@ const DialogoRechazo = ({ pedido, onCancelar, onRechazado }: PropsRechazo) => {
     setEnviando(true);
     setError(null);
     try {
-      await rechazarPedido(pedido.id, motivo.trim());
+      await rechazarPedido(pedido.id, motivo.trim(), reintegroManual);
       onRechazado();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "No pudimos rechazar el pedido.");
+      if (seReintegra && !reintegroManual) setFallaReintegro(true);
       setEnviando(false);
     }
   };
@@ -80,6 +86,21 @@ const DialogoRechazo = ({ pedido, onCancelar, onRechazado }: PropsRechazo) => {
           {motivo.length}/{MAX_MOTIVO}
         </p>
         {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+        {fallaReintegro && (
+          <div className="mb-3 bg-amber-50 border border-amber-300 rounded-md p-3">
+            <p className="text-sm text-amber-900 mb-2">
+              Mercado Pago no pudo devolver el pago automáticamente. Podés rechazar el pedido igual y
+              hacer la devolución desde el panel de Mercado Pago; queda anotado en "Pagos para devolver".
+            </p>
+            <button
+              onClick={() => confirmar(true)}
+              disabled={enviando}
+              className="w-full bg-amber-700 hover:bg-amber-800 text-white font-semibold py-2 rounded-md disabled:opacity-60"
+            >
+              Rechazar igual y devolver desde Mercado Pago
+            </button>
+          </div>
+        )}
         <div className="flex gap-2">
           <button
             onClick={onCancelar}
@@ -89,7 +110,7 @@ const DialogoRechazo = ({ pedido, onCancelar, onRechazado }: PropsRechazo) => {
             Cancelar
           </button>
           <button
-            onClick={confirmar}
+            onClick={() => confirmar(false)}
             disabled={enviando}
             className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-md disabled:opacity-60"
           >
@@ -113,6 +134,8 @@ export const Caja = () => {
   // Resultado de "Verificar pago" por pedido, para mostrarlo debajo de su tarjeta.
   const [avisoPago, setAvisoPago] = useState<Record<number, string>>({});
   const [aRechazar, setARechazar] = useState<PedidoCaja | null>(null);
+  const [paraDevolver, setParaDevolver] = useState<PedidoCaja[]>([]);
+  const [aMarcarDevuelto, setAMarcarDevuelto] = useState<PedidoCaja | null>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -120,6 +143,8 @@ export const Caja = () => {
         pedidosPendientes(),
         pedidosParaEntregarEnLocal(),
       ]);
+      // Aparte: si falla, no tapa las otras dos listas.
+      reintegrosPendientes().then(setParaDevolver).catch(() => setParaDevolver([]));
       setPendientes(listaPendientes);
       setParaEntregar(listaParaEntregar);
       setError(null);
@@ -188,6 +213,19 @@ export const Caja = () => {
     }
   };
 
+  const handleMarcarDevuelto = async (pedido: PedidoCaja) => {
+    setProcesando(pedido.id);
+    try {
+      await marcarReintegrado(pedido.id);
+      setAMarcarDevuelto(null);
+      await cargar();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "No pudimos marcar el pago como devuelto.");
+    } finally {
+      setProcesando(null);
+    }
+  };
+
   const handleConfirmarCobro = async (pedido: PedidoCaja) => {
     setProcesando(pedido.id);
     try {
@@ -217,6 +255,36 @@ export const Caja = () => {
           Cerrar sesión
         </button>
       </header>
+
+      <Modal
+        isOpen={aMarcarDevuelto !== null}
+        onClose={() => setAMarcarDevuelto(null)}
+        titulo={aMarcarDevuelto ? `Pago del pedido #${aMarcarDevuelto.id}` : ""}
+      >
+        {aMarcarDevuelto && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-700">
+              ¿Ya devolviste los ${aMarcarDevuelto.total.toLocaleString()} desde el panel de Mercado Pago?
+              El cliente va a ver que se le devolvió el pago.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setAMarcarDevuelto(null)}
+                className="flex-1 border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-2 rounded-md"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleMarcarDevuelto(aMarcarDevuelto)}
+                disabled={procesando === aMarcarDevuelto.id}
+                className="flex-1 bg-amber-700 hover:bg-amber-800 text-white font-semibold py-2 rounded-md disabled:opacity-60"
+              >
+                Sí, ya lo devolví
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {aRechazar && (
         <DialogoRechazo
@@ -312,6 +380,38 @@ export const Caja = () => {
             </div>
           )}
         </section>
+
+        {paraDevolver.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold mb-1">Pagos para devolver</h2>
+            <p className="text-sm text-gray-600 mb-3">
+              Pedidos rechazados que ya estaban pagados con Mercado Pago. Devolvé el pago desde el panel
+              de Mercado Pago y después marcalo acá.
+            </p>
+            <div className="space-y-3">
+              {paraDevolver.map((pedido) => (
+                <div key={pedido.id} className="bg-amber-50 rounded-lg border border-amber-300 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-semibold">Pedido #{pedido.id}</p>
+                    <span className="font-bold">${pedido.total.toLocaleString()}</span>
+                  </div>
+                  {pedido.cliente && (
+                    <p className="text-sm text-gray-600 mb-3">
+                      {pedido.cliente.nombre} {pedido.cliente.apellido}
+                    </p>
+                  )}
+                  <button
+                    onClick={() => setAMarcarDevuelto(pedido)}
+                    disabled={procesando === pedido.id}
+                    className="w-full bg-amber-700 hover:bg-amber-800 text-white font-semibold py-2 rounded-md disabled:opacity-60"
+                  >
+                    Marcar como devuelto
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section>
           <h2 className="text-lg font-semibold mb-3">Listos para entregar y cobrar</h2>
