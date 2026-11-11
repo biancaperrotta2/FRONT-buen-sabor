@@ -1,25 +1,23 @@
 import type { FC } from "react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../api/client";
+import { panelDelRol, rutaInicioSegunRol } from "../utils/rutasPorRol";
 
 const LoginEmail: FC = () => {
   const navigate = useNavigate();
-  const { login, loginConFirebase } = useAuth();
+  const { usuario, cargando: cargandoSesion, login, loginConFirebase } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
-  // El local es de cara al cliente; un repartidor, cocinero o cajero que se loguea
-  // acá va directo a su propio panel en vez de a la tienda.
+  // El local es de cara al cliente; un empleado que se loguea acá va directo a su propio
+  // panel en vez de a la tienda.
   const redirigirSegunRol = (usuario: { rol: string }) => {
-    if (usuario.rol === "REPARTIDOR") navigate("/repartidor");
-    else if (usuario.rol === "COCINERO") navigate("/cocina");
-    else if (usuario.rol === "CAJERO") navigate("/caja");
-    else navigate("/");
+    navigate(rutaInicioSegunRol(usuario.rol));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,6 +51,10 @@ const LoginEmail: FC = () => {
       setCargando(false);
     }
   };
+
+  // Un empleado con la sesión ya abierta no necesita volver a loguearse.
+  const panel = !cargandoSesion ? panelDelRol(usuario?.rol) : null;
+  if (panel) return <Navigate to={panel} replace />;
 
   return (
     <div className="flex min-h-screen">

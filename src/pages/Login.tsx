@@ -1,9 +1,10 @@
 import { HiOutlineMail } from "react-icons/hi";
 import type { FC } from "react";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../api/client";
+import { panelDelRol } from "../utils/rutasPorRol";
 
 const GOOGLE_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -40,7 +41,7 @@ const cargarScriptGoogle = (): Promise<void> => {
 
 const Login: FC = () => {
   const navigate = useNavigate();
-  const { loginConGoogle } = useAuth();
+  const { usuario, cargando: cargandoSesion, loginConGoogle } = useAuth();
   const botonGoogleRef = useRef<HTMLDivElement>(null);
   const [errorGoogle, setErrorGoogle] = useState<string | null>(null);
 
@@ -86,6 +87,10 @@ const Login: FC = () => {
       cancelado = true;
     };
   }, [loginConGoogle, navigate]);
+
+  // Un empleado con la sesión ya abierta no necesita volver a loguearse.
+  const panel = !cargandoSesion ? panelDelRol(usuario?.rol) : null;
+  if (panel) return <Navigate to={panel} replace />;
 
   return (
     <div className="flex min-h-screen">
