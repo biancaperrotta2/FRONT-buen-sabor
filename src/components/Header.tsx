@@ -2,12 +2,13 @@ import { useNavigate, useLocation } from "react-router-dom";
 import CarritoDesplegable from "../components/CarritoDesplegable";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useCarrito } from "../context/CarritoContext";
 
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { usuario, logout } = useAuth();
-  const [mostrarCarrito, setMostrarCarrito] = useState(false);
+  const { carritoAbierto: mostrarCarrito, setCarritoAbierto: setMostrarCarrito } = useCarrito();
   const [menuUsuarioVisible, setMenuUsuarioVisible] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 

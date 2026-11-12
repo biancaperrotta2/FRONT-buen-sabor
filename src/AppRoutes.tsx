@@ -32,11 +32,13 @@ export const AppRoutes = () => {
     <CategoriaProvider>
       <InsumosProvider>
         <ProductosProvider>
+          {/* Un solo carrito para toda la app: antes cada página tenía el suyo y se perdía al navegar. */}
+          <CarritoProvider>
           <Routes>
             <Route path="/"
-                  element={<CarritoProvider> <LandingPage /> </CarritoProvider>}/>
+                  element={<LandingPage />}/>
             <Route path="/menupage"
-                  element={<CarritoProvider> <MenuPage/> </CarritoProvider>}/>
+                  element={<MenuPage/>}/>
             <Route path="/admin" element={<ProtectedRoute roles={["ADMIN"]}><Admin /></ProtectedRoute>} />
             <Route path="/registro" element={<RegistroFormulario/>} />
             <Route path="/login" element={<Login/>} />
@@ -46,7 +48,7 @@ export const AppRoutes = () => {
             <Route path="/pago/pendiente" element={<Aprobado />} />
             <Route path="/pago/error" element={<Aprobado />} />
             <Route path="/mis-pedidos"
-                  element={<ProtectedRoute><CarritoProvider><MisPedidos /></CarritoProvider></ProtectedRoute>} />
+                  element={<ProtectedRoute><MisPedidos /></ProtectedRoute>} />
             <Route path="/repartidor"
                   element={<ProtectedRoute roles={["REPARTIDOR", "ADMIN"]}><Repartidor /></ProtectedRoute>} />
             <Route path="/cocina"
@@ -65,6 +67,7 @@ export const AppRoutes = () => {
             <Route path="/facturas" element={<ProtectedRoute roles={["ADMIN"]}><Facturas /></ProtectedRoute>} />
             <Route path="*" element={<div>Ruta no encontrada</div>} />
           </Routes>
+          </CarritoProvider>
         </ProductosProvider>
       </InsumosProvider>
     </CategoriaProvider>

@@ -120,7 +120,10 @@ export interface DetallePedidoResumen {
   articuloManufacturado: { id: number; denominacion: string } | null;
   // Viene para cualquier artículo (plato, promoción o insumo vendido directo).
   nombreArticulo: string | null;
+  // Para "Repetir orden": buscar el mismo artículo en el menú de hoy.
+  idArticulo: number | null;
   cantidad: number;
+  // Precio al que se vendió (subtotal / cantidad), no el de hoy.
   precioUnitario: number;
   subtotal: number;
 }
@@ -135,6 +138,9 @@ export interface PedidoResumen {
   formaPago: FormaPagoApi;
   domicilioSnapshot: string;
   total: number;
+  gastosEnvio: number | null;
+  descuento: number | null;
+  aclaraciones: string | null;
   idFactura: number | null;
   // Lo escribe el cajero al rechazar el pedido.
   motivoCancelacion: string | null;
