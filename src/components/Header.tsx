@@ -111,7 +111,7 @@ const Header = () => {
                     }}
                     className="w-full text-left px-4 py-2 text-white hover:bg-gray-700 transition"
                   >
-                    Mis pedidos
+                    Mis órdenes
                   </button>
                   <button
                     onClick={() => {

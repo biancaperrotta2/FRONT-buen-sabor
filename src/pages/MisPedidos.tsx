@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FiClock, FiFileText, FiShoppingCart } from "react-icons/fi";
 import Header from "../components/Header";
 import { Modal } from "../components/Modal";
 import { ApiError, apiFetchJson } from "../api/client";
@@ -84,16 +85,12 @@ const pesos = (monto: number) => `$${monto.toLocaleString("es-AR")}`;
 const nombreDe = (d: PedidoResumen["detalles"][number]) =>
   d.nombreArticulo ?? d.articuloManufacturado?.denominacion ?? "Producto";
 
-// "3 productos: Pizza Muzzarella, Papas y 1 más": el cliente reconoce el pedido sin abrirlo.
-const resumirProductos = (pedido: PedidoResumen) => {
-  const unidades = pedido.detalles.reduce((total, d) => total + d.cantidad, 0);
-  const nombres = pedido.detalles.map(nombreDe);
-  const visibles = nombres.slice(0, 2).join(", ");
-  const resto = nombres.length - 2;
-  return `${unidades} ${unidades === 1 ? "producto" : "productos"}: ${visibles}${
-    resto > 0 ? ` y ${resto} más` : ""
-  }`;
-};
+// Como la figura 25: "1 - Empanada de carne, 1 - Papas grandes, 1 - Coca Cola 500ml".
+const listarProductos = (pedido: PedidoResumen) =>
+  pedido.detalles.map((d) => `${d.cantidad} - ${nombreDe(d)}`).join(", ");
+
+const formaDeEntrega = (pedido: PedidoResumen) =>
+  pedido.tipoEnvio === "DELIVERY" ? "Envío a domicilio" : "A retirar en local";
 
 const AvisoRechazo = ({ pedido }: { pedido: PedidoResumen }) =>
   pedido.estadoPedido === "CANCELADO" && pedido.motivoCancelacion ? (
@@ -194,7 +191,7 @@ export const MisPedidos = () => {
     <div className="min-h-screen bg-gray-50">
       <Header />
       <div className="pt-32 px-4 sm:px-6 max-w-5xl mx-auto pb-16">
-        <h1 className="text-2xl font-bold mb-6">Mis pedidos</h1>
+        <h1 className="text-2xl font-bold mb-6">Mis órdenes</h1>
 
         {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
 
@@ -202,12 +199,12 @@ export const MisPedidos = () => {
 
         {pedidos !== null && pedidos.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-gray-600 mb-4">Todavía no hiciste ningún pedido.</p>
+            <p className="text-gray-600 text-lg mb-4">Aún no has hecho ninguna orden</p>
             <button
               onClick={() => navigate("/menupage")}
               className="bg-amber-700 hover:bg-amber-800 text-white text-sm font-semibold px-5 py-2 rounded-md"
             >
-              Ver el menú
+              Ver catálogo
             </button>
           </div>
         )}
@@ -264,34 +261,37 @@ export const MisPedidos = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {visibles.map((pedido) => {
-                  const pasada = ESTADOS_PASADOS.includes(pedido.estadoPedido);
                   const entregado = pedido.estadoPedido === "ENTREGADO";
                   return (
+                    // Toda la tarjeta abre el detalle (criterio 8); con teclado, Enter o espacio.
                     <div
                       key={pedido.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Ver detalle de la orden #${pedido.id}`}
                       onClick={() => setDetalle(pedido)}
-                      className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 cursor-pointer hover:border-amber-700 transition flex flex-col"
+                      onKeyDown={(e) => {
+                        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                          e.preventDefault();
+                          setDetalle(pedido);
+                        }
+                      }}
+                      className="bg-white rounded-lg shadow-sm border border-gray-300 p-4 cursor-pointer hover:border-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 transition flex flex-col"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold">Pedido #{pedido.id}</p>
-                          <p className="text-sm text-gray-500">
-                            {formatearFecha(pedido.fechaPedido)} · {pasada ? "Hora estimada" : "Listo aprox."}{" "}
-                            {formatearHora(pedido.horaEstimadaFinalizacion)}
-                          </p>
-                        </div>
+                        <p className="font-semibold uppercase">Orden #{pedido.id}</p>
                         <span className={`shrink-0 text-xs font-semibold px-2 py-1 rounded-full ${ESTADO_COLOR[pedido.estadoPedido]}`}>
                           {ESTADO_LABEL[pedido.estadoPedido]}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {pedido.tipoEnvio === "DELIVERY" ? "Delivery" : "Retiro en tienda"} ·{" "}
-                        {pedido.formaPago === "EFECTIVO" ? "Efectivo" : "Mercado Pago"}
+                      <p className="text-sm font-semibold text-gray-700 mt-1 flex items-center gap-1">
+                        <FiClock aria-hidden="true" /> {formatearHora(pedido.horaEstimadaFinalizacion)} • {formaDeEntrega(pedido)}
                       </p>
-                      <p className="text-sm text-gray-700 mt-1">{resumirProductos(pedido)}</p>
+                      <p className="text-xs text-gray-500">{formatearFecha(pedido.fechaPedido)}</p>
+                      <p className="text-sm text-gray-700 mt-2">{listarProductos(pedido)}</p>
                       <AvisoRechazo pedido={pedido} />
 
-                      <div className="mt-auto pt-3 flex flex-wrap items-center gap-2">
+                      <div className="mt-auto pt-3 flex flex-wrap justify-end gap-2">
                         {entregado && (
                           <button
                             onClick={(e) => {
@@ -300,8 +300,9 @@ export const MisPedidos = () => {
                             }}
                             disabled={pedido.idFactura === null || abriendoFactura === pedido.id}
                             title={pedido.idFactura === null ? "Factura no disponible todavía" : undefined}
-                            className="text-sm font-semibold px-3 py-2 rounded-md text-white bg-amber-700 hover:bg-amber-800 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+                            className="mr-auto inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-full border border-gray-400 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
+                            <FiFileText aria-hidden="true" />
                             {abriendoFactura === pedido.id
                               ? "Abriendo..."
                               : pedido.idFactura === null
@@ -315,20 +316,11 @@ export const MisPedidos = () => {
                             handleRepetir(pedido);
                           }}
                           disabled={repitiendo === pedido.id}
-                          className="text-sm font-semibold px-3 py-2 rounded-md border border-amber-700 text-amber-800 hover:bg-amber-50 disabled:opacity-60"
+                          className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-full border border-gray-400 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
                         >
+                          <FiShoppingCart aria-hidden="true" />
                           {repitiendo === pedido.id ? "Buscando..." : "Repetir orden"}
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDetalle(pedido);
-                          }}
-                          className="text-sm font-semibold px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100"
-                        >
-                          Ver detalle
-                        </button>
-                        <span className="ml-auto font-bold">{pesos(pedido.total)}</span>
                       </div>
                     </div>
                   );
@@ -339,76 +331,71 @@ export const MisPedidos = () => {
         )}
       </div>
 
-      {/* Detalle del pedido (enunciado, criterio 8) */}
-      <Modal isOpen={detalle !== null} onClose={() => setDetalle(null)} titulo={detalle ? `Pedido #${detalle.id}` : ""} className="max-w-xl">
+      {/* Detalle del pedido (criterio 8, figuras 28 y 29) */}
+      <Modal isOpen={detalle !== null} onClose={() => setDetalle(null)} titulo="Detalle de pedido" className="max-w-lg">
         {detalle && (
-          <div className="text-sm space-y-3">
+          <div className="text-sm space-y-4">
             <div className="flex items-center justify-between">
+              <span className="font-semibold">
+                Orden #{detalle.id} · {formatearFecha(detalle.fechaPedido)}
+              </span>
               <span className={`text-xs font-semibold px-2 py-1 rounded-full ${ESTADO_COLOR[detalle.estadoPedido]}`}>
                 {ESTADO_LABEL[detalle.estadoPedido]}
               </span>
-              <span className="text-gray-600">
-                {formatearFecha(detalle.fechaPedido)} · Hora estimada {formatearHora(detalle.horaEstimadaFinalizacion)}
-              </span>
             </div>
-            <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1">
-              <dt className="text-gray-500">Entrega</dt>
-              <dd>
-                {detalle.tipoEnvio === "DELIVERY" ? `Delivery a ${detalle.domicilioSnapshot}` : "Retiro en tienda"}
-              </dd>
-              <dt className="text-gray-500">Pago</dt>
-              <dd>
-                {detalle.formaPago === "EFECTIVO" ? "Efectivo" : "Mercado Pago"} · {ESTADO_PAGO_LABEL[detalle.estadoPago]}
-              </dd>
-              {detalle.aclaraciones && (
-                <>
-                  <dt className="text-gray-500">Aclaraciones</dt>
-                  <dd>{detalle.aclaraciones}</dd>
-                </>
-              )}
-            </dl>
             <AvisoRechazo pedido={detalle} />
-            <table className="w-full border border-gray-200">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="text-left p-2">Producto</th>
-                  <th className="text-right p-2">Cant.</th>
-                  <th className="text-right p-2">Precio</th>
-                  <th className="text-right p-2">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detalle.detalles.map((d, i) => (
-                  <tr key={i} className="border-t border-gray-100">
-                    <td className="p-2">{nombreDe(d)}</td>
-                    <td className="p-2 text-right">{d.cantidad}</td>
-                    <td className="p-2 text-right">{d.precioUnitario != null ? pesos(d.precioUnitario) : "—"}</td>
-                    <td className="p-2 text-right">{pesos(d.subtotal)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="space-y-1">
-              <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span>{pesos(detalle.detalles.reduce((t, d) => t + d.subtotal, 0))}</span>
-              </div>
-              {!!detalle.descuento && (
-                <div className="flex justify-between text-green-700">
-                  <span>Descuento retiro en tienda (10%)</span>
-                  <span>-{pesos(detalle.descuento)}</span>
+
+            <div>
+              {detalle.detalles.map((d, i) => (
+                <div key={i} className="flex justify-between py-0.5">
+                  <span>
+                    {d.cantidad} x <span className="font-semibold">{nombreDe(d)}</span>
+                  </span>
+                  <span>{pesos(d.subtotal)}</span>
                 </div>
-              )}
-              {detalle.tipoEnvio === "DELIVERY" && detalle.gastosEnvio != null && (
+              ))}
+              <div className="border-t border-gray-300 mt-2 pt-2 space-y-0.5">
                 <div className="flex justify-between">
-                  <span>Envío</span>
-                  <span>{pesos(detalle.gastosEnvio)}</span>
+                  <span>Subtotal</span>
+                  <span>{pesos(detalle.detalles.reduce((t, d) => t + d.subtotal, 0))}</span>
                 </div>
-              )}
-              <div className="flex justify-between font-bold text-base border-t pt-1">
-                <span>Total</span>
-                <span>{pesos(detalle.total)}</span>
+                {!!detalle.descuento && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Descuento por retiro en tienda</span>
+                    <span>-{pesos(detalle.descuento)}</span>
+                  </div>
+                )}
+                {detalle.tipoEnvio === "DELIVERY" && detalle.gastosEnvio != null && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Delivery</span>
+                    <span>+{pesos(detalle.gastosEnvio)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold uppercase">
+                  <span>Total</span>
+                  <span>{pesos(detalle.total)}</span>
+                </div>
               </div>
+            </div>
+
+            <div>
+              <p className="font-semibold text-base mb-1">Detalle de entrega</p>
+              <p className="text-gray-700">
+                {detalle.tipoEnvio === "DELIVERY" ? `Delivery • ${detalle.domicilioSnapshot}` : "Retiro en tienda"}
+              </p>
+              <p className="text-gray-700">
+                {detalle.tipoEnvio === "DELIVERY"
+                  ? `Su pedido llegará aproximadamente a las ${formatearHora(detalle.horaEstimadaFinalizacion)}`
+                  : `Su pedido estará listo a las ${formatearHora(detalle.horaEstimadaFinalizacion)}`}
+              </p>
+              {detalle.aclaraciones && <p className="text-gray-600 mt-1">Aclaraciones: {detalle.aclaraciones}</p>}
+            </div>
+
+            <div>
+              <p className="font-semibold text-base mb-1">Forma de pago</p>
+              <p className="text-gray-700">
+                {detalle.formaPago === "EFECTIVO" ? "Efectivo" : "Mercado Pago"} · {ESTADO_PAGO_LABEL[detalle.estadoPago]}
+              </p>
             </div>
           </div>
         )}

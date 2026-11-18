@@ -13,7 +13,7 @@ const CONTENIDO: Record<Exclude<Resultado, "verificando">, { emoji: string; titu
   pendiente: {
     emoji: "⏳",
     titulo: "Pago pendiente",
-    detalle: "Tu pago está siendo procesado. Podés seguir su estado en \"Mis pedidos\".",
+    detalle: "Tu pago está siendo procesado. Podés seguir su estado en \"Mis órdenes\".",
   },
   rechazado: {
     emoji: "❌",
@@ -23,7 +23,7 @@ const CONTENIDO: Record<Exclude<Resultado, "verificando">, { emoji: string; titu
   sinDatos: {
     emoji: "ℹ️",
     titulo: "Volviste de Mercado Pago",
-    detalle: "Podés ver el estado de tu pedido en \"Mis pedidos\".",
+    detalle: "Podés ver el estado de tu pedido en \"Mis órdenes\".",
   },
 };
 
@@ -70,7 +70,7 @@ export const Aprobado = () => {
           to="/mis-pedidos"
           className="rounded-sm px-6 py-2 border border-amber-700 text-amber-700 transition-all hover:scale-105"
         >
-          Ver mis pedidos
+          Ver mis órdenes
         </Link>
         <Link
           to="/"

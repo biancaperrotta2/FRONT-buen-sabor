@@ -66,7 +66,7 @@ const DialogoRechazo = ({ pedido, onCancelar, onRechazado }: PropsRechazo) => {
           Rechazar pedido #{pedido.id}
         </h3>
         <p className="text-sm text-gray-600 mb-4">
-          El pedido queda cancelado y el cliente ve el motivo en "Mis pedidos".
+          El pedido queda cancelado y el cliente ve el motivo en "Mis órdenes".
           {seReintegra && " Como ya está pagado, se le devuelve el pago por Mercado Pago."}
         </p>
         <label htmlFor="motivo-rechazo" className="text-sm font-medium block mb-1">
