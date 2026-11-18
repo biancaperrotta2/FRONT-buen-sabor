@@ -94,7 +94,7 @@ export const SelectorDomicilio = ({ seleccionado, onSeleccionar }: Props) => {
             onClick={() => setMostrarFormulario(true)}
             className="text-blue-600 hover:underline text-xs"
           >
-            + Agregar otra dirección
+            Añadir nueva dirección
           </button>
         </div>
       )}

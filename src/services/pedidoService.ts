@@ -84,6 +84,23 @@ export interface PedidoCreado {
   gastosEnvio: number | null;
   descuento: number | null;
   total: number;
+  detallePedidos: { nombreArticulo: string | null; cantidad: number; subtotal: number }[];
+}
+
+// Hora estimada para lo que hay en el carrito (misma fórmula que al crear el pedido).
+export interface Estimacion {
+  horaEstimada: string;
+  minutos: number;
+}
+
+export function estimarHora(
+  tipoEnvio: TipoEnvioApi,
+  items: { idArticulo: number; cantidad: number }[]
+): Promise<Estimacion> {
+  return apiFetchJson<Estimacion>("/pedidos/estimacion", {
+    method: "POST",
+    body: JSON.stringify({ tipoEnvio, items }),
+  });
 }
 
 export function crearPedido(request: PedidoRequestApi): Promise<PedidoCreado> {
