@@ -1,7 +1,7 @@
 import { apiFetchJson } from "../api/client";
 
 export type TipoEnvioApi = "DELIVERY" | "TAKE_AWAY";
-export type FormaPagoApi = "EFECTIVO" | "MERCADO_PAGO";
+export type FormaPagoApi = "EFECTIVO" | "MERCADO_PAGO" | "CRIPTO";
 
 export interface Domicilio {
   id: number;
@@ -91,6 +91,48 @@ export function crearPedido(request: PedidoRequestApi): Promise<PedidoCreado> {
     method: "POST",
     body: JSON.stringify(request),
   });
+}
+
+// Pago con criptomonedas: link a la página de pago (la pasarela simulada o CoinGate) y el total en
+// dólares, convertido con una cotización fija configurada en el backend.
+export interface PagoCripto {
+  idPedido: number;
+  urlPago: string;
+  montoUsd: number;
+  cotizacionUsd: number;
+}
+
+export function crearPagoCripto(idPedido: number): Promise<PagoCripto> {
+  return apiFetchJson<PagoCripto>(`/pedidos/${idPedido}/pago/cripto`, { method: "POST" });
+}
+
+// --- Pasarela cripto simulada (cripto.proveedor=simulado) ---
+
+export type MonedaCripto = "BTC" | "ETH" | "USDT" | "USDC";
+
+export interface OrdenCriptoSimulada {
+  id: number;
+  idPedido: number;
+  montoUsd: number;
+  estado: "new" | "paid" | "expired" | "canceled";
+  moneda: MonedaCripto | null;
+  successUrl: string;
+  cancelUrl: string;
+}
+
+export function obtenerOrdenCriptoSimulada(id: number): Promise<OrdenCriptoSimulada> {
+  return apiFetchJson<OrdenCriptoSimulada>(`/pagos-cripto-simulado/${id}`);
+}
+
+export function simularPagoCripto(id: number, moneda: MonedaCripto): Promise<OrdenCriptoSimulada> {
+  return apiFetchJson<OrdenCriptoSimulada>(`/pagos-cripto-simulado/${id}/pagar`, {
+    method: "POST",
+    body: JSON.stringify({ moneda }),
+  });
+}
+
+export function simularVencimientoCripto(id: number): Promise<OrdenCriptoSimulada> {
+  return apiFetchJson<OrdenCriptoSimulada>(`/pagos-cripto-simulado/${id}/vencer`, { method: "POST" });
 }
 
 export interface PreferenciaPago {

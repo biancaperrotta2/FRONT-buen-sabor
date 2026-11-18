@@ -15,6 +15,7 @@ import Login from "./pages/Login";
 import LoginEmail from "./pages/LoginEmail";
 import RecuperarContrasena from "./pages/RecuperarContraseña";
 import Aprobado from "./pages/Aprobado";
+import PagoCriptoSimulado from "./pages/PagoCriptoSimulado";
 import MisPedidos from "./pages/MisPedidos";
 import Semielaborados from "./pages/Semielaborados";
 import Repartidor from "./pages/Repartidor";
@@ -45,6 +46,7 @@ export const AppRoutes = () => {
             <Route path="/loginemail" element={<LoginEmail/>} />
             <Route path="/recuperarcontrasena" element={<RecuperarContrasena/>} />
             <Route path="/pago/exito" element={<Aprobado />} />
+            <Route path="/pago/cripto-simulado/:id" element={<ProtectedRoute><PagoCriptoSimulado /></ProtectedRoute>} />
             <Route path="/pago/pendiente" element={<Aprobado />} />
             <Route path="/pago/error" element={<Aprobado />} />
             <Route path="/mis-pedidos"

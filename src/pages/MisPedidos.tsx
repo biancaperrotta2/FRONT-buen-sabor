@@ -15,6 +15,7 @@ import { listarInsumosVendibles } from "../services/insumoService";
 import { listarPromocionesVigentes } from "../services/promocionService";
 import { mapearBase } from "../context/ProductosContext";
 import { useCarrito } from "../context/CarritoContext";
+import { nombreFormaPago } from "../utils/formaPago";
 import type { ArticuloManufacturado } from "../classes/ArticuloManufacturadoClass";
 import type { ArticuloInsumo } from "../classes/ArticuloInsumoClass";
 import type { Promocion } from "../classes/PromocionClass";
@@ -45,7 +46,7 @@ const ESTADO_PAGO_LABEL: Record<EstadoPagoApi, string> = {
   PENDIENTE: "Pago pendiente",
   PAGADO: "Pagado",
   RECHAZADO: "Pago rechazado",
-  REINTEGRADO: "Pago devuelto a tu Mercado Pago",
+  REINTEGRADO: "Pago devuelto",
 };
 
 // Enunciado, historia #11: "Órdenes pasadas" son las finalizadas o canceladas; el resto, pendientes.
@@ -96,8 +97,8 @@ const AvisoRechazo = ({ pedido }: { pedido: PedidoResumen }) =>
   pedido.estadoPedido === "CANCELADO" && pedido.motivoCancelacion ? (
     <p className="text-sm text-red-800 bg-red-50 border border-red-200 rounded-md p-2 mt-2" role="status">
       El local rechazó tu pedido: {pedido.motivoCancelacion}
-      {pedido.estadoPago === "REINTEGRADO" && " Te devolvimos el pago a tu cuenta de Mercado Pago."}
-      {pedido.reintegroPendiente && " Te vamos a devolver el pago a tu cuenta de Mercado Pago."}
+      {pedido.estadoPago === "REINTEGRADO" && " Te devolvimos el pago."}
+      {pedido.reintegroPendiente && " Te vamos a devolver el pago."}
     </p>
   ) : null;
 
@@ -394,7 +395,7 @@ export const MisPedidos = () => {
             <div>
               <p className="font-semibold text-base mb-1">Forma de pago</p>
               <p className="text-gray-700">
-                {detalle.formaPago === "EFECTIVO" ? "Efectivo" : "Mercado Pago"} · {ESTADO_PAGO_LABEL[detalle.estadoPago]}
+                {nombreFormaPago(detalle.formaPago)} · {ESTADO_PAGO_LABEL[detalle.estadoPago]}
               </p>
             </div>
           </div>

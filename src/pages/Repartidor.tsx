@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../api/client";
+import { esPagoOnline, nombreFormaPago } from "../utils/formaPago";
 import {
   confirmarCobroEfectivo,
   marcarEntregado,
@@ -133,8 +134,8 @@ export const Repartidor = () => {
                     <p className="text-sm text-gray-500">{pedido.aclaracionDomicilio}</p>
                   )}
                   <p className="text-sm text-gray-500 mb-3">
-                    {pedido.formaPago === "MERCADO_PAGO"
-                      ? "Ya pagado con Mercado Pago"
+                    {esPagoOnline(pedido.formaPago)
+                      ? `Ya pagado con ${nombreFormaPago(pedido.formaPago)}`
                       : pedido.estadoPago === "PAGADO"
                         ? "Cobrado ✓"
                         : "Falta cobrar en efectivo"}{" "}

@@ -10,6 +10,8 @@ import { ApiError } from "../api/client";
 import {
   crearPedido,
   crearPreferenciaPago,
+  crearPagoCripto,
+  type PagoCripto,
   sincronizarCarrito,
   type PedidoCreado,
   type PreferenciaPago,
@@ -44,12 +46,23 @@ export const ModalFactura = ({ onClose }: Props) => {
     domicilioSeleccionado,
     setDomicilioSeleccionado,
   } = useCarrito();
-  const [pago, setPago] = useState<"efectivo" | "tarjeta">("efectivo");
+  const [pago, setPago] = useState<"efectivo" | "tarjeta" | "cripto">("efectivo");
+  const [pagoCripto, setPagoCripto] = useState<PagoCripto | null>(null);
   const [pedidoCreado, setPedidoCreado] = useState<PedidoCreado | null>(null);
   const [preferenciaPago, setPreferenciaPago] = useState<PreferenciaPago | null>(null);
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aclaraciones, setAclaraciones] = useState("");
+
+  // El pedido ya existe aunque esto falle (ej. la pasarela no responde): por eso es aparte y se puede
+  // reintentar desde el mismo diálogo sin crear otro pedido.
+  const prepararPagoCripto = async (idPedido: number) => {
+    try {
+      setPagoCripto(await crearPagoCripto(idPedido));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "No pudimos preparar el pago con criptomonedas. Probá de nuevo.");
+    }
+  };
 
   const handleConfirmar = async () => {
     setError(null);
@@ -66,7 +79,7 @@ export const ModalFactura = ({ onClose }: Props) => {
 
       const pedido = await crearPedido({
         tipoEnvio: tipoEntrega === "delivery" ? "DELIVERY" : "TAKE_AWAY",
-        formaPago: pago === "tarjeta" ? "MERCADO_PAGO" : "EFECTIVO",
+        formaPago: pago === "tarjeta" ? "MERCADO_PAGO" : pago === "cripto" ? "CRIPTO" : "EFECTIVO",
         idDomicilio: tipoEntrega === "delivery" ? domicilioSeleccionado?.id ?? null : null,
         aclaraciones: aclaraciones.trim() || undefined,
       });
@@ -77,6 +90,9 @@ export const ModalFactura = ({ onClose }: Props) => {
       if (pedido.formaPago === "MERCADO_PAGO") {
         const preferencia = await crearPreferenciaPago(pedido.id);
         setPreferenciaPago(preferencia);
+      }
+      if (pedido.formaPago === "CRIPTO") {
+        await prepararPagoCripto(pedido.id);
       }
     } catch (e) {
       setError(
@@ -91,7 +107,7 @@ export const ModalFactura = ({ onClose }: Props) => {
 
   // Pedido ya creado y pagado en efectivo (o pendiente de pago en el local): se muestra
   // la confirmación con los datos reales que devolvió el backend.
-  if (pedidoCreado && pedidoCreado.formaPago !== "MERCADO_PAGO") {
+  if (pedidoCreado && pedidoCreado.formaPago === "EFECTIVO") {
     return (
       <ModalConfirmacionOrden
         pedido={pedidoCreado}
@@ -110,7 +126,51 @@ export const ModalFactura = ({ onClose }: Props) => {
           <MdClose className="text-xl" />
         </button>
 
-        {pedidoCreado && preferenciaPago ? (
+        {pedidoCreado && pedidoCreado.formaPago === "CRIPTO" ? (
+          <>
+            <h2 className="text-lg font-bold mb-4">
+              Pedido #{pedidoCreado.id} creado — completá el pago
+            </h2>
+            <p className="text-sm text-gray-600 mb-1">
+              Total: ${pedidoCreado.total.toLocaleString("es-AR")}
+            </p>
+            {pagoCripto ? (
+              <>
+                <p className="text-sm text-gray-700 mb-4">
+                  Vas a pagar <span className="font-semibold">{pagoCripto.montoUsd.toLocaleString("es-AR", { minimumFractionDigits: 2 })} USD</span>{" "}
+                  en la criptomoneda que elijas (1 USD = ${pagoCripto.cotizacionUsd.toLocaleString("es-AR")}).
+                </p>
+                <button
+                  onClick={() => {
+                    window.location.href = pagoCripto.urlPago;
+                  }}
+                  className="w-full bg-amber-700 hover:bg-amber-800 text-white py-2 rounded-md font-semibold"
+                >
+                  Pagar con criptomonedas
+                </button>
+                <p className="text-xs text-gray-500 mt-2">
+                  Te llevamos a la página de pago. Cuando termines, volvés acá y ves el resultado.
+                </p>
+              </>
+            ) : (
+              <>
+                {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+                <button
+                  onClick={async () => {
+                    setError(null);
+                    setProcesando(true);
+                    await prepararPagoCripto(pedidoCreado.id);
+                    setProcesando(false);
+                  }}
+                  disabled={procesando}
+                  className="w-full bg-amber-700 hover:bg-amber-800 text-white py-2 rounded-md font-semibold disabled:opacity-60"
+                >
+                  {procesando ? "Preparando..." : "Reintentar pago con criptomonedas"}
+                </button>
+              </>
+            )}
+          </>
+        ) : pedidoCreado && preferenciaPago ? (
           <>
             <h2 className="text-lg font-bold mb-4">
               Pedido #{pedidoCreado.id} creado — completá el pago
@@ -182,7 +242,7 @@ export const ModalFactura = ({ onClose }: Props) => {
 
             <div className="text-sm mb-4">
               <p className="font-medium mb-2">Método de pago</p>
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
                 <label className="flex items-center gap-2">
                   <input
                     type="radio"
@@ -200,6 +260,15 @@ export const ModalFactura = ({ onClose }: Props) => {
                     onChange={(e) => setPago(e.target.value as "tarjeta")}
                   />
                   Mercado Pago
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    value="cripto"
+                    checked={pago === "cripto"}
+                    onChange={(e) => setPago(e.target.value as "cripto")}
+                  />
+                  Criptomonedas
                 </label>
               </div>
             </div>

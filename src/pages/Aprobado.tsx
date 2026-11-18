@@ -18,11 +18,11 @@ const CONTENIDO: Record<Exclude<Resultado, "verificando">, { emoji: string; titu
   rechazado: {
     emoji: "❌",
     titulo: "No pudimos procesar el pago",
-    detalle: "Mercado Pago rechazó el pago y el pedido se canceló. Podés hacer un pedido nuevo.",
+    detalle: "El pago fue rechazado o venció y el pedido se canceló. Podés hacer un pedido nuevo.",
   },
   sinDatos: {
     emoji: "ℹ️",
-    titulo: "Volviste de Mercado Pago",
+    titulo: "Volviste del pago",
     detalle: "Podés ver el estado de tu pedido en \"Mis órdenes\".",
   },
 };
@@ -53,7 +53,7 @@ export const Aprobado = () => {
   if (resultado === "verificando") {
     return (
       <div className="h-screen w-screen flex items-center justify-center px-6">
-        <p className="text-gray-600" role="status">Verificando tu pago con Mercado Pago...</p>
+        <p className="text-gray-600" role="status">Verificando tu pago...</p>
       </div>
     );
   }

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../api/client";
 import { Modal } from "../components/Modal";
+import { esPagoOnline, nombreFormaPago, nombrePasarela } from "../utils/formaPago";
 import {
   cambiarEstadoPedido,
   confirmarCobroEfectivo,
@@ -36,6 +37,8 @@ const DialogoRechazo = ({ pedido, onCancelar, onRechazado }: PropsRechazo) => {
   // El reintegro automático falló: se ofrece rechazar igual y devolver desde el panel de MP.
   const [fallaReintegro, setFallaReintegro] = useState(false);
   const seReintegra = pedido.formaPago === "MERCADO_PAGO" && pedido.estadoPago === "PAGADO";
+  // Cripto: la pasarela no devuelve sola, queda en "Pagos para devolver".
+  const quedaParaDevolver = pedido.formaPago === "CRIPTO" && pedido.estadoPago === "PAGADO";
 
   const confirmar = async (reintegroManual: boolean) => {
     if (!motivo.trim()) {
@@ -68,6 +71,8 @@ const DialogoRechazo = ({ pedido, onCancelar, onRechazado }: PropsRechazo) => {
         <p className="text-sm text-gray-600 mb-4">
           El pedido queda cancelado y el cliente ve el motivo en "Mis órdenes".
           {seReintegra && " Como ya está pagado, se le devuelve el pago por Mercado Pago."}
+          {quedaParaDevolver &&
+            " Como ya está pagado con criptomonedas, queda en \"Pagos para devolver\" para devolverlo desde la pasarela cripto."}
         </p>
         <label htmlFor="motivo-rechazo" className="text-sm font-medium block mb-1">
           Motivo
@@ -187,7 +192,8 @@ export const Caja = () => {
     }
   };
 
-  // Para un pedido de Mercado Pago que figura sin pagar: se le pregunta a MP en el momento
+  // Para un pedido que se paga online (Mercado Pago o cripto) y figura sin pagar: se le pregunta
+  // a la pasarela en el momento
   // (por si el aviso automático no llegó).
   const handleVerificarPago = async (pedido: PedidoCaja) => {
     setProcesando(pedido.id);
@@ -196,18 +202,18 @@ export const Caja = () => {
       setAvisoPago((prev) => ({
         ...prev,
         [pedido.id]: !r.pagoEncontrado
-          ? "Mercado Pago todavía no registra ningún pago para este pedido."
+          ? `${nombrePasarela(pedido.formaPago)} todavía no registra ningún pago para este pedido.`
           : r.estadoPago === "PAGADO"
-            ? "Pago confirmado por Mercado Pago."
+            ? `Pago confirmado por ${nombrePasarela(pedido.formaPago)}.`
             : r.estadoPago === "REINTEGRADO"
               ? "El pago fue devuelto al cliente."
               : r.estadoPago === "RECHAZADO"
-              ? "Mercado Pago rechazó el pago: el pedido se canceló."
-              : "El pago sigue pendiente en Mercado Pago.",
+              ? `${nombrePasarela(pedido.formaPago)} rechazó o venció el pago: el pedido se canceló.`
+              : `El pago sigue pendiente en ${nombrePasarela(pedido.formaPago)}.`,
       }));
       await cargar();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No pudimos consultar el pago en Mercado Pago.");
+      setError(e instanceof ApiError ? e.message : `No pudimos consultar el pago en ${nombrePasarela(pedido.formaPago)}.`);
     } finally {
       setProcesando(null);
     }
@@ -264,7 +270,7 @@ export const Caja = () => {
         {aMarcarDevuelto && (
           <div className="space-y-4">
             <p className="text-sm text-gray-700">
-              ¿Ya devolviste los ${aMarcarDevuelto.total.toLocaleString()} desde el panel de Mercado Pago?
+              ¿Ya devolviste los ${aMarcarDevuelto.total.toLocaleString()} desde {nombrePasarela(aMarcarDevuelto.formaPago)}?
               El cliente va a ver que se le devolvió el pago.
             </p>
             <div className="flex gap-2">
@@ -331,26 +337,26 @@ export const Caja = () => {
                   )}
                   <p
                     className={`text-sm text-gray-500 ${
-                      pedido.formaPago === "MERCADO_PAGO" && pedido.estadoPago !== "PAGADO"
+                      esPagoOnline(pedido.formaPago) && pedido.estadoPago !== "PAGADO"
                         ? "mb-1"
                         : "mb-3"
                     }`}
                   >
                     {pedido.tipoEnvio === "DELIVERY" ? "Delivery" : "Retiro en tienda"} ·{" "}
-                    {pedido.formaPago === "EFECTIVO" ? "Efectivo" : "Mercado Pago"} · Estimado{" "}
+                    {nombreFormaPago(pedido.formaPago)} · Estimado{" "}
                     {formatearHora(pedido.horaEstimadaFinalizacion)}
                   </p>
-                  {pedido.formaPago === "MERCADO_PAGO" && pedido.estadoPago !== "PAGADO" && (
+                  {esPagoOnline(pedido.formaPago) && pedido.estadoPago !== "PAGADO" && (
                     <div className="mb-3">
                       <p className="text-sm text-amber-700 mb-2">
-                        Pago todavía no confirmado por Mercado Pago
+                        Pago todavía no confirmado por {nombrePasarela(pedido.formaPago)}
                       </p>
                       <button
                         onClick={() => handleVerificarPago(pedido)}
                         disabled={procesando === pedido.id}
                         className="w-full border border-amber-700 text-amber-700 hover:bg-amber-50 font-semibold py-2 rounded-md disabled:opacity-60"
                       >
-                        Verificar pago en Mercado Pago
+                        Verificar pago en {nombrePasarela(pedido.formaPago)}
                       </button>
                     </div>
                   )}
@@ -385,8 +391,8 @@ export const Caja = () => {
           <section>
             <h2 className="text-lg font-semibold mb-1">Pagos para devolver</h2>
             <p className="text-sm text-gray-600 mb-3">
-              Pedidos rechazados que ya estaban pagados con Mercado Pago. Devolvé el pago desde el panel
-              de Mercado Pago y después marcalo acá.
+              Pedidos rechazados que ya estaban pagados online. Devolvé el pago desde Mercado Pago o desde
+              la pasarela cripto (según cómo pagó) y después marcalo acá.
             </p>
             <div className="space-y-3">
               {paraDevolver.map((pedido) => (
@@ -439,8 +445,8 @@ export const Caja = () => {
                     <p className="text-sm text-gray-700 italic">Aclaraciones: {pedido.aclaraciones}</p>
                   )}
                   <p className="text-sm text-gray-500 mb-3">
-                    {pedido.formaPago === "MERCADO_PAGO"
-                      ? "Ya pagado con Mercado Pago"
+                    {esPagoOnline(pedido.formaPago)
+                      ? `Ya pagado con ${nombreFormaPago(pedido.formaPago)}`
                       : pedido.estadoPago === "PAGADO"
                         ? "Cobrado ✓"
                         : "Falta cobrar en efectivo"}
