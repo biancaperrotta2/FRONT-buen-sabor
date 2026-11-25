@@ -1,30 +1,38 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FiSearch } from "react-icons/fi";
-import SeccionMenu from "./SeccionMenu";
+import CardMenu from "./CardMenu";
 import DetalleProductoModal from "./DetalleProductoModal";
+import { Modal } from "./Modal";
+import { Paginador } from "./Paginador";
 import { useProductos } from "../context/ProductosContext";
 import { useCategoria } from "../context/CategoriaContext";
 import { listarPromocionesVigentes } from "../services/promocionService";
 import { listarInsumosVendibles } from "../services/insumoService";
+import { obtenerLocal, urlComoLlegar, type Local } from "../services/localService";
 import type { ArticuloManufacturado } from "../classes/ArticuloManufacturadoClass";
 import type { ArticuloInsumo } from "../classes/ArticuloInsumoClass";
 import { Promocion } from "../classes/PromocionClass";
 
 type ArticuloMenu = ArticuloManufacturado | ArticuloInsumo | Promocion;
 
-// Catálogo de venta (enunciado, historia #8): buscador, menú de categorías con subcategorías,
-// "Ordenar por" y tarjetas "Sin stock". Todo se filtra en el navegador: el menú completo ya
+// Catálogo de venta (enunciado, historia #8, figuras 17 y 18): buscador, banner del 10% por
+// retiro, menú de categorías con subcategorías, "Ordenar por" y una grilla paginada de tarjetas
+// ("Sin stock" incluidas, deshabilitadas). Se filtra todo en el navegador: el menú completo ya
 // viene en tres listas chicas (platos, bebidas/insumos vendibles y promociones).
 
-type Orden = "predeterminado" | "precio-asc" | "precio-desc" | "nombre" | "tiempo";
+type Orden = "predeterminado" | "precio-asc" | "precio-desc" | "nombre-asc" | "nombre-desc" | "tiempo-asc" | "tiempo-desc";
 
+// Las mismas opciones que la figura 18.
 const OPCIONES_ORDEN: { valor: Orden; etiqueta: string }[] = [
+  { valor: "precio-asc", etiqueta: "Precio más bajo" },
+  { valor: "precio-desc", etiqueta: "Precio más alto" },
+  { valor: "nombre-asc", etiqueta: "A-Z" },
+  { valor: "nombre-desc", etiqueta: "Z-A" },
+  { valor: "tiempo-asc", etiqueta: "Menor tiempo" },
+  { valor: "tiempo-desc", etiqueta: "Mayor tiempo" },
   { valor: "predeterminado", etiqueta: "Predeterminado" },
-  { valor: "precio-asc", etiqueta: "Precio: menor a mayor" },
-  { valor: "precio-desc", etiqueta: "Precio: mayor a menor" },
-  { valor: "nombre", etiqueta: "Nombre (A-Z)" },
-  { valor: "tiempo", etiqueta: "Tiempo de preparación" },
 ];
+
+const POR_PAGINA = 9;
 
 type Seleccion =
   | { tipo: "todas" }
@@ -43,31 +51,20 @@ const descripcionDe = (a: ArticuloMenu) =>
 const normalizar = (texto: string) =>
   texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
-const comparar = (orden: Orden) => (a: ArticuloMenu, b: ArticuloMenu) => {
-  switch (orden) {
-    case "precio-asc":
-      return precioDe(a) - precioDe(b);
-    case "precio-desc":
-      return precioDe(b) - precioDe(a);
-    case "nombre":
-      return a.denominacion.localeCompare(b.denominacion, "es");
-    case "tiempo":
-      return tiempoDe(a) - tiempoDe(b);
-    default:
-      return 0;
-  }
-};
-
 const ContenedorMenu = () => {
   const { productos } = useProductos();
   const { categorias } = useCategoria();
   const [promociones, setPromociones] = useState<Promocion[]>([]);
   const [insumosVendibles, setInsumosVendibles] = useState<ArticuloInsumo[]>([]);
   const [productoSeleccionado, setProductoSeleccionado] = useState<ArticuloMenu | null>(null);
+  const [local, setLocal] = useState<Local | null>(null);
+  const [verDescuento, setVerDescuento] = useState(false);
 
   const [busqueda, setBusqueda] = useState("");
   const [orden, setOrden] = useState<Orden>("predeterminado");
   const [seleccion, setSeleccion] = useState<Seleccion>({ tipo: "todas" });
+  const [pagina, setPagina] = useState(0);
+  const grillaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     listarPromocionesVigentes()
@@ -76,7 +73,13 @@ const ContenedorMenu = () => {
     listarInsumosVendibles()
       .then(setInsumosVendibles)
       .catch((error) => console.error("Error al obtener bebidas y otros:", error));
+    obtenerLocal().then(setLocal).catch(() => setLocal(null));
   }, []);
+
+  // Cualquier cambio de filtro u orden vuelve a la primera página.
+  useEffect(() => {
+    setPagina(0);
+  }, [busqueda, orden, seleccion]);
 
   const articulos = useMemo<ArticuloMenu[]>(
     () => [...productos, ...insumosVendibles],
@@ -111,6 +114,8 @@ const ContenedorMenu = () => {
   const nombreCategoria = (id: number, a?: ArticuloMenu) =>
     id === ID_SIN_CATEGORIA ? "Otros" : arbol.get(id)?.nombre ?? (a && !esPromocion(a) ? a.categoria?.denominacion : undefined) ?? "Otros";
 
+  const etiquetasDe = (a: ArticuloMenu) => (esPromocion(a) ? ["Promoción"] : cadenaDe(a).map((id) => nombreCategoria(id, a)));
+
   // Raíces y subcategorías que tienen al menos un artículo (no se muestran categorías vacías).
   const { raices, subcategoriasDe } = useMemo(() => {
     const raices = new Map<number, string>();
@@ -136,8 +141,7 @@ const ContenedorMenu = () => {
   const texto = normalizar(busqueda);
   const coincideBusqueda = (a: ArticuloMenu) => {
     if (!texto) return true;
-    const categoriasDelArticulo = esPromocion(a) ? ["promociones"] : cadenaDe(a).map((id) => nombreCategoria(id, a));
-    return [a.denominacion, descripcionDe(a), ...categoriasDelArticulo].some((t) => normalizar(t).includes(texto));
+    return [a.denominacion, descripcionDe(a), ...etiquetasDe(a)].some((t) => normalizar(t).includes(texto));
   };
 
   const coincideSeleccion = (a: ArticuloMenu) => {
@@ -148,31 +152,37 @@ const ContenedorMenu = () => {
     return cadena[0] === seleccion.raizId && (seleccion.subId == null || cadena.includes(seleccion.subId));
   };
 
-  const todos: ArticuloMenu[] = [...promociones, ...articulos];
-  const filtrados = todos.filter((a) => coincideSeleccion(a) && coincideBusqueda(a)).sort(comparar(orden));
+  // Predeterminado: promociones primero y después cada categoría (en orden alfabético).
+  const posicionPredeterminada = (a: ArticuloMenu) =>
+    esPromocion(a) ? -1 : raices.findIndex(([id]) => id === cadenaDe(a)[0]);
 
-  // Sin filtro ni búsqueda: secciones (Promociones primero, después cada categoría raíz).
-  const mostrarSecciones = seleccion.tipo === "todas" && !texto;
-  const secciones = new Map<string, ArticuloMenu[]>();
-  if (mostrarSecciones) {
-    const promos = filtrados.filter(esPromocion);
-    if (promos.length > 0) secciones.set("Promociones", promos);
-    raices.forEach(([raizId, nombre]) => {
-      const items = filtrados.filter((a) => !esPromocion(a) && cadenaDe(a)[0] === raizId);
-      if (items.length > 0) secciones.set(nombre, items);
-    });
-  }
-
-  const tituloResultados = (() => {
-    if (texto) return `Resultados para "${busqueda.trim()}"`;
-    if (seleccion.tipo === "promociones") return "Promociones";
-    if (seleccion.tipo === "categoria") {
-      const raiz = raices.find(([id]) => id === seleccion.raizId)?.[1] ?? "";
-      const sub = seleccion.subId != null ? subcategoriasDe(seleccion.raizId).find(([id]) => id === seleccion.subId)?.[1] : null;
-      return sub ? `${raiz} · ${sub}` : raiz;
+  const comparar = (a: ArticuloMenu, b: ArticuloMenu) => {
+    switch (orden) {
+      case "precio-asc":
+        return precioDe(a) - precioDe(b);
+      case "precio-desc":
+        return precioDe(b) - precioDe(a);
+      case "nombre-asc":
+        return a.denominacion.localeCompare(b.denominacion, "es");
+      case "nombre-desc":
+        return b.denominacion.localeCompare(a.denominacion, "es");
+      case "tiempo-asc":
+        return tiempoDe(a) - tiempoDe(b);
+      case "tiempo-desc":
+        return tiempoDe(b) - tiempoDe(a);
+      default:
+        return posicionPredeterminada(a) - posicionPredeterminada(b);
     }
-    return "";
-  })();
+  };
+
+  const filtrados = [...promociones, ...articulos].filter((a) => coincideSeleccion(a) && coincideBusqueda(a)).sort(comparar);
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
+  const visibles = filtrados.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
+
+  const irAPagina = (p: number) => {
+    setPagina(p);
+    grillaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   // Menú de categorías: además del scroll normal, se puede arrastrar con el mouse (enunciado,
   // criterio 3). Si hubo arrastre, el clic que lo termina no cuenta como selección.
@@ -198,8 +208,8 @@ const ContenedorMenu = () => {
   };
 
   const estiloChip = (activo: boolean) =>
-    `shrink-0 px-4 py-2 rounded-full text-sm font-semibold border transition select-none ${
-      activo ? "bg-amber-700 border-amber-700 text-white" : "bg-white border-gray-300 text-gray-800 hover:border-amber-700"
+    `shrink-0 px-4 py-2 rounded-full text-sm border transition select-none ${
+      activo ? "bg-gray-300 border-gray-300 text-gray-900 font-semibold" : "bg-white border-gray-300 text-gray-700 hover:border-gray-500"
     }`;
 
   const raizSeleccionada = seleccion.tipo === "categoria" ? seleccion.raizId : null;
@@ -207,33 +217,60 @@ const ContenedorMenu = () => {
   const hayFiltro = seleccion.tipo !== "todas" || !!texto;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="mx-auto w-full max-w-6xl rounded-xl bg-white/80 backdrop-blur-md shadow-md mt-6 p-4 space-y-3">
-        <div className="flex flex-col md:flex-row gap-3">
-          <form
-            role="search"
-            onSubmit={(e) => e.preventDefault()}
-            className="flex flex-1 items-center bg-white border border-gray-300 rounded-full overflow-hidden focus-within:border-amber-700"
-          >
-            <input
-              type="search"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscá por producto, categoría o palabra clave"
-              aria-label="Buscar en el menú"
-              className="flex-1 px-4 py-2 text-sm text-black outline-none bg-transparent"
-            />
-            <button type="submit" aria-label="Buscar" className="px-4 py-2 text-gray-600 hover:text-amber-700">
-              <FiSearch />
+    <main className="px-4 py-8">
+      <div className="w-full max-w-5xl mx-auto rounded-xl bg-white shadow-md p-5 sm:p-8">
+        <h2 className="text-2xl text-gray-700">
+          Encontrá las mejores ofertas <span className="font-semibold">en Mendoza</span>
+        </h2>
+        <p className="text-sm text-gray-500 mb-3">Lista de nuestras hamburguesas, pizzas, promociones y bebidas...</p>
+        <form
+          role="search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            grillaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          className="flex gap-3 mb-6"
+        >
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Por ejemplo, pizza, hamburguesa..."
+            aria-label="Buscar por producto, categoría o palabra clave"
+            className="flex-1 min-w-0 border border-gray-300 rounded-md px-3 py-2 text-sm text-black focus:outline-none focus:border-amber-700"
+          />
+          <button type="submit" className="bg-gray-500 hover:bg-gray-600 text-white text-sm font-semibold px-6 sm:px-10 rounded-md">
+            Buscar
+          </button>
+        </form>
+
+        <div className="flex flex-col sm:flex-row items-stretch bg-gray-100 rounded-xl overflow-hidden mb-8 sm:h-36">
+          <div className="flex-1 p-5">
+            <p className="text-xl font-semibold text-gray-700">10% Descuento</p>
+            <p className="text-sm text-gray-500 mb-3">Si retirás tu pedido en nuestro local</p>
+            <button
+              type="button"
+              onClick={() => setVerDescuento(true)}
+              className="bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold px-4 py-1.5 rounded-md"
+            >
+              Ver más
             </button>
-          </form>
-          <label className="flex items-center gap-2 text-sm text-gray-800">
-            <span className="font-semibold whitespace-nowrap">Ordenar por</span>
+          </div>
+          <img src="/assets/img/hamburguesaInfo2.jpeg" alt="" className="sm:w-2/5 h-32 sm:h-full object-cover" />
+        </div>
+
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h3 className="text-xl text-gray-700">Categorías</h3>
+          <label className="text-sm">
             <select
+              aria-label="Ordenar por"
               value={orden}
               onChange={(e) => setOrden(e.target.value as Orden)}
-              className="border border-gray-300 rounded-md px-3 py-2 bg-white text-black"
+              className="border border-gray-300 rounded-md px-3 py-1.5 bg-white text-gray-700"
             >
+              <option value="predeterminado" disabled hidden>
+                Ordenar por
+              </option>
               {OPCIONES_ORDEN.map((o) => (
                 <option key={o.valor} value={o.valor}>
                   {o.etiqueta}
@@ -249,11 +286,11 @@ const ContenedorMenu = () => {
           onMouseMove={alMover}
           onMouseUp={alSoltar}
           onMouseLeave={alSoltar}
-          className="flex gap-2 overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing"
+          className="flex gap-2 overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing pb-1"
           aria-label="Categorías"
         >
           <button type="button" aria-pressed={seleccion.tipo === "todas"} onClick={() => elegir({ tipo: "todas" })} className={estiloChip(seleccion.tipo === "todas")}>
-            Todas
+            Todos
           </button>
           {promociones.length > 0 && (
             <button
@@ -279,14 +316,14 @@ const ContenedorMenu = () => {
         </div>
 
         {seleccion.tipo === "categoria" && subcategorias.length > 0 && (
-          <div className="flex flex-wrap gap-2 pl-1" aria-label="Subcategorías">
+          <div className="flex flex-wrap gap-2 mt-3" aria-label="Subcategorías">
             <button
               type="button"
               aria-pressed={seleccion.subId == null}
               onClick={() => setSeleccion({ ...seleccion, subId: null })}
-              className={`${estiloChip(seleccion.subId == null)} !py-1 text-xs`}
+              className={`${estiloChip(seleccion.subId == null)} !py-1 text-xs uppercase`}
             >
-              Todo {raices.find(([id]) => id === seleccion.raizId)?.[1]}
+              Todos
             </button>
             {subcategorias.map(([id, nombre]) => (
               <button
@@ -294,59 +331,104 @@ const ContenedorMenu = () => {
                 type="button"
                 aria-pressed={seleccion.subId === id}
                 onClick={() => setSeleccion({ ...seleccion, subId: id })}
-                className={`${estiloChip(seleccion.subId === id)} !py-1 text-xs`}
+                className={`${estiloChip(seleccion.subId === id)} !py-1 text-xs uppercase`}
               >
                 {nombre}
               </button>
             ))}
           </div>
         )}
-      </div>
 
-      <div className="overflow-y-scroll scrollbar-hide h-[600px]">
-        <main className="px-4 py-6 md:px-16 scroll-smooth">
-          <div className="w-full max-w-[1440px] mx-auto rounded-xl bg-white/70 backdrop-blur-md shadow-md p-6">
-            {mostrarSecciones ? (
-              <div className="space-y-10">
-                {[...secciones.entries()].map(([nombre, items]) => (
-                  <SeccionMenu key={nombre} titulo={nombre.toUpperCase()} productos={items} onProductoClick={setProductoSeleccionado} />
+        <div ref={grillaRef} className="scroll-mt-28 mt-6">
+          {texto && filtrados.length > 0 && (
+            <p className="text-sm text-gray-600 mb-3">
+              {filtrados.length} {filtrados.length === 1 ? "resultado" : "resultados"} para "{busqueda.trim()}"
+            </p>
+          )}
+
+          {filtrados.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-6">
+                {visibles.map((producto) => (
+                  <CardMenu
+                    key={producto.id}
+                    producto={producto}
+                    etiquetas={etiquetasDe(producto)}
+                    onClick={() => setProductoSeleccionado(producto)}
+                  />
                 ))}
-                {secciones.size === 0 && (
-                  <p className="text-center text-gray-600 py-10">Todavía no hay productos cargados en el menú.</p>
-                )}
               </div>
-            ) : filtrados.length > 0 ? (
-              <>
-                <p className="text-sm text-gray-600 mb-2">
-                  {filtrados.length} {filtrados.length === 1 ? "producto" : "productos"}
-                </p>
-                <SeccionMenu titulo={tituloResultados.toUpperCase()} productos={filtrados} onProductoClick={setProductoSeleccionado} />
-              </>
-            ) : (
-              <div className="text-center py-10">
-                <p className="text-gray-700 mb-4">No encontramos productos{texto ? ` para "${busqueda.trim()}"` : " en esta categoría"}.</p>
-                {hayFiltro && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBusqueda("");
-                      setSeleccion({ tipo: "todas" });
-                    }}
-                    className="bg-amber-700 hover:bg-amber-800 text-white text-sm font-semibold px-4 py-2 rounded-md"
-                  >
-                    Ver todo el menú
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </main>
+              {totalPaginas > 1 && (
+                <div className="mt-6">
+                  <Paginador
+                    pagina={pagina}
+                    totalPaginas={totalPaginas}
+                    totalElementos={filtrados.length}
+                    tamanio={POR_PAGINA}
+                    onCambiarPagina={irAPagina}
+                  />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-10">
+              <p className="text-gray-700 mb-4">
+                {hayFiltro
+                  ? `No encontramos productos${texto ? ` para "${busqueda.trim()}"` : " en esta categoría"}.`
+                  : "Todavía no hay productos cargados en el menú."}
+              </p>
+              {hayFiltro && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBusqueda("");
+                    setSeleccion({ tipo: "todas" });
+                  }}
+                  className="bg-amber-700 hover:bg-amber-800 text-white text-sm font-semibold px-4 py-2 rounded-md"
+                >
+                  Ver todo el menú
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {productoSeleccionado && (
         <DetalleProductoModal producto={productoSeleccionado} onClose={() => setProductoSeleccionado(null)} visible={true} />
       )}
-    </div>
+
+      <Modal isOpen={verDescuento} onClose={() => setVerDescuento(false)} titulo="10% de descuento retirando en el local">
+        <div className="space-y-3 text-sm text-gray-700">
+          <p>
+            Si elegís <span className="font-semibold">"En tienda"</span> en el carrito, se descuenta solo el 10% del total de tus
+            productos. No hace falta ningún código.
+          </p>
+          {local && (
+            <>
+              <p>
+                <span className="font-semibold">{local.nombre}</span>
+                {local.direccion ? ` · ${local.direccion}` : ""}
+              </p>
+              <p>
+                Horario: de {local.horarioApertura.slice(0, 5)} a {local.horarioCierre.slice(0, 5)} hs
+                {local.abiertoAhora ? " (abierto ahora)" : " (ahora está cerrado)"}
+              </p>
+              {local.direccion && (
+                <a
+                  href={urlComoLlegar(local.direccion)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block text-amber-800 underline hover:text-amber-900"
+                >
+                  ¿Cómo llegar?
+                </a>
+              )}
+            </>
+          )}
+        </div>
+      </Modal>
+    </main>
   );
 };
 

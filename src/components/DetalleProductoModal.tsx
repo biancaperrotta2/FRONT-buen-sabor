@@ -104,6 +104,7 @@ const DetalleProductoModal: React.FC<DetalleProductoProps> = ({
         </div>
         <button
           onClick={onClose}
+          aria-label="Cerrar"
           className="absolute top-4 right-4 text-gray-600 text-2xl"
         >
           &times;

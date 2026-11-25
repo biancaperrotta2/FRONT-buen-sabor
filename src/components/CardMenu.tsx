@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { FiClock } from "react-icons/fi";
 import { urlDeImagen } from "../utils/imagen";
 import { ArticuloManufacturado } from "../classes/ArticuloManufacturadoClass";
 import { ArticuloInsumo } from "../classes/ArticuloInsumoClass";
@@ -9,29 +8,27 @@ type ArticuloMenu = ArticuloManufacturado | ArticuloInsumo | Promocion;
 
 interface Props {
   producto: ArticuloMenu;
+  // Categoría (y subcategoría) que se muestra debajo del precio, como las etiquetas de la figura 17.
+  etiquetas?: string[];
   onClick?: () => void;
 }
 
-const CardMenu = ({ producto, onClick }: Props) => {
-  let descripcion = "";
+// Tarjeta del catálogo (figura 17): foto arriba con el tiempo de preparación encima, título,
+// precio y etiquetas. Sin stock: gris, con la etiqueta "SIN STOCK" y sin abrir el detalle.
+const CardMenu = ({ producto, etiquetas = [], onClick }: Props) => {
   let precio = 0;
   let imagen: string | null | undefined = null;
   // Solo los platos tienen tiempo de preparación (una bebida o una promo no lo informan).
   let tiempo = 0;
 
   if ("descripcionDescuento" in producto) {
-    descripcion = producto.descripcionDescuento;
     precio = producto.precioPromocional;
     imagen = producto.imagen || null;
   } else if ("descripcion" in producto) {
-    descripcion = producto.descripcion;
     precio = producto.precioVenta;
     imagen = producto.imagen;
     tiempo = producto.tiempoEstimado;
-  } else if ("esParaElaborar" in producto) {
-    descripcion = producto.esParaElaborar
-      ? "Insumo para elaboración"
-      : "Producto directo al consumidor";
+  } else {
     precio = producto.precioVenta;
     imagen = producto.imagen;
   }
@@ -41,46 +38,52 @@ const CardMenu = ({ producto, onClick }: Props) => {
   const [imagenRota, setImagenRota] = useState(false);
   const urlImagen = imagenRota ? null : urlDeImagen(imagen);
 
-  return (
-    <div
-      onClick={sinStock ? undefined : onClick}
-      aria-disabled={sinStock || undefined}
-      className={`relative bg-zinc-900 rounded-lg shadow-lg w-full max-w-[460px] h-[160px] flex overflow-hidden transition ${
-        sinStock ? "opacity-60 grayscale cursor-not-allowed" : "cursor-pointer hover:scale-[1.01]"
-      }`}
-    >
-      {sinStock && (
-        <span className="absolute top-2 right-2 z-10 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
-          Sin stock
-        </span>
-      )}
-      <div className={`flex flex-col justify-between p-4 ${urlImagen ? "w-[75%]" : "w-full"}`}>
-        <div>
-          <span className="text-white font-bold text-sm block mb-1 uppercase tracking-wide">
-            {denominacion}
-          </span>
-          <p className="text-gray-300 text-xs leading-tight">{descripcion}</p>
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-yellow-400 text-sm font-bold">${precio.toLocaleString("es-AR")}</span>
-          {tiempo > 0 && (
-            <span className="text-gray-300 text-xs flex items-center gap-1">
-              <FiClock aria-hidden="true" /> {tiempo} min
-            </span>
-          )}
-        </div>
-      </div>
-      {urlImagen && (
-        <div className="w-[45%] h-full">
+  const contenido = (
+    <>
+      <div className="relative h-40 bg-gray-200 rounded-xl overflow-hidden">
+        {urlImagen && (
           <img
             src={urlImagen}
-            alt={`Imagen de ${denominacion}`}
+            alt=""
             onError={() => setImagenRota(true)}
-            className="w-full h-40 object-cover rounded-t-xl"
+            className="w-full h-full object-cover"
           />
-        </div>
-      )}
+        )}
+        {tiempo > 0 && (
+          <span className="absolute bottom-0 left-0 bg-white/90 text-gray-700 text-xs rounded-tr-xl px-3 py-1">
+            {tiempo} min
+          </span>
+        )}
+        {sinStock && (
+          <span className="absolute top-3 right-0 bg-gray-500 text-white text-[10px] font-bold tracking-wide px-3 py-1">
+            SIN STOCK
+          </span>
+        )}
+      </div>
+      <div className="px-1 pt-2">
+        <p className="text-gray-800 font-semibold leading-tight">{denominacion}</p>
+        <p className="text-sm">
+          <span className="font-semibold text-gray-800">${precio.toLocaleString("es-AR")}</span>
+          {etiquetas.length > 0 && <span className="text-gray-500 ml-2">{etiquetas.join(" · ")}</span>}
+        </p>
+      </div>
+    </>
+  );
+
+  // Botón real (accesible con teclado) salvo que no tenga stock, que queda como tarjeta inerte.
+  return sinStock ? (
+    <div aria-disabled="true" aria-label={`${denominacion}, sin stock`} className="opacity-50 grayscale cursor-not-allowed">
+      {contenido}
     </div>
+  ) : (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Ver detalle de ${denominacion}`}
+      className="block w-full text-left rounded-xl transition hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-700"
+    >
+      {contenido}
+    </button>
   );
 };
 
