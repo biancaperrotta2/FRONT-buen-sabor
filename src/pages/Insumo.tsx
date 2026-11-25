@@ -14,6 +14,7 @@ import { apiFetchJson, mensajeDeError } from "../api/client";
 import { useCategoria } from "../context/CategoriaContext";
 import { convertirCantidad, factorDeUnidad } from "../utils/unidades";
 import { subirImagen } from "../services/imagenService";
+import { DetalleInsumoAdmin } from "../components/DetalleArticuloAdmin";
 
 interface UsoInsumo {
   recetas: { idProducto: number; producto: string; cantidad: number }[];
@@ -94,6 +95,9 @@ export const Insumos = () => {
   };
 
   // Cuando abro el modal para editar un insumo
+  // Diálogo "Detalle insumo" (figura 66); su "Editar insumo" abre el mismo formulario de edición.
+  const [enDetalle, setEnDetalle] = useState<ArticuloInsumo | null>(null);
+
   const handleEditar = (insumo: ArticuloInsumo) => {
     setModoEdicion(true);
     setInsumoEnEdicion(insumo);
@@ -300,6 +304,12 @@ export const Insumos = () => {
                     </td>
                     <td className="px-4 py-2 flex gap-2">
                       <button
+                        className="cursor-pointer bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded whitespace-nowrap"
+                        onClick={() => setEnDetalle(insumo)}
+                      >
+                        Ver detalle
+                      </button>
+                      <button
                         className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded"
                         onClick={() => handleEditar(insumo)}
                       >
@@ -417,6 +427,17 @@ export const Insumos = () => {
           </Modal>
         </main>
       </div>
+      {enDetalle?.id != null && (
+        <DetalleInsumoAdmin
+          id={enDetalle.id}
+          onClose={() => setEnDetalle(null)}
+          onEditar={() => {
+            const insumo = enDetalle;
+            setEnDetalle(null);
+            handleEditar(insumo);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -18,6 +18,7 @@ import { useCategoria } from "../context/CategoriaContext";
 import { useTablaServidor } from "../hooks/useTablaServidor";
 import { listarProductosAdmin } from "../services/productoService";
 import type { ArticuloManufacturado as ArticuloManufacturadoModel } from "../classes/ArticuloManufacturadoClass";
+import { DetalleProductoAdmin } from "../components/DetalleArticuloAdmin";
 
 // Ítem candidato a ingrediente: solo insumos y semielaborados pueden formar parte de la
 // receta de un producto (nunca otro plato final ni una promoción — lo valida el backend en
@@ -206,6 +207,9 @@ export const ArticuloManufacturados = () => {
   };
 
   // La fila de la tabla no trae la preparación ni la foto: se pide el producto completo.
+  // Diálogo "Detalle Catálogo" (figura 53); su "Editar" abre el mismo formulario de edición.
+  const [enDetalle, setEnDetalle] = useState<ArticuloManufacturadoModel | null>(null);
+
   const abrirModalEditar = async (articulo: ArticuloManufacturadoModel) => {
     try {
       const completo = await apiFetchJson<any>(`/articulo-manufacturado/${articulo.id}`);
@@ -367,6 +371,12 @@ export const ArticuloManufacturados = () => {
                     <td className="px-4 py-2">${articulo.precioVenta}</td>
                     <td className="px-4 py-2">{articulo.tiempoEstimado}</td>
                     <td className="px-4 py-2 flex gap-2">
+                      <button
+                        className="cursor-pointer bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded whitespace-nowrap"
+                        onClick={() => setEnDetalle(articulo)}
+                      >
+                        Ver detalle
+                      </button>
                       <button
                         className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded"
                         onClick={() => abrirModalEditar(articulo)}
@@ -596,6 +606,17 @@ export const ArticuloManufacturados = () => {
           </Modal>
         </main>
       </div>
+      {enDetalle?.id != null && (
+        <DetalleProductoAdmin
+          id={enDetalle.id}
+          onClose={() => setEnDetalle(null)}
+          onEditar={() => {
+            const articulo = enDetalle;
+            setEnDetalle(null);
+            abrirModalEditar(articulo);
+          }}
+        />
+      )}
     </div>
   );
 };
