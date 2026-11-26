@@ -24,3 +24,11 @@ export function factorDeUnidad(denominacion: string | null | undefined): number 
 export function convertirCantidad(valor: number, factorOrigen: number, factorDestino: number): number {
   return Math.round(((valor * factorOrigen) / factorDestino) * 1_000_000) / 1_000_000;
 }
+
+// "gr" -> "kg", "ml" -> "l": el costo de un insumo se guarda por unidad base.
+export function unidadBase(unidad: string | null | undefined): string {
+  const u = (unidad ?? "").toLowerCase();
+  if (u === "gr" || u === "g" || u.startsWith("gramo")) return "kg";
+  if (u === "ml" || u.startsWith("mililitro")) return "l";
+  return unidad ?? "";
+}

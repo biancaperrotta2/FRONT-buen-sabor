@@ -8,8 +8,9 @@ import {
   type InsumoDetalle,
   type ProductoDetalle,
 } from "../services/detalleArticuloService";
-import { factorDeUnidad } from "../utils/unidades";
+import { factorDeUnidad, unidadBase } from "../utils/unidades";
 import { urlDeImagen } from "../utils/imagen";
+import { SeccionExistenciasInsumo } from "./ExistenciasInsumo";
 
 const pesos = (monto: number | null | undefined) =>
   monto == null ? "—" : `$${monto.toLocaleString("es-AR", { maximumFractionDigits: 2 })}`;
@@ -19,14 +20,6 @@ const fechaHora = (iso: string | null) =>
     ? new Date(iso).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
     : "Sin registro";
 
-// "gr" -> "kg", "ml" -> "l": el costo de un insumo se guarda por unidad base.
-const unidadBase = (unidad: string | null) => {
-  const u = (unidad ?? "").toLowerCase();
-  if (u === "gr" || u === "g" || u.startsWith("gramo")) return "kg";
-  if (u === "ml" || u.startsWith("mililitro")) return "l";
-  return unidad ?? "";
-};
-
 const ESTADO_STOCK = {
   SUFICIENTE: { texto: "Stock suficiente", color: "bg-green-500" },
   ULTIMAS: { texto: "Últimas unidades", color: "bg-amber-500" },
@@ -35,11 +28,21 @@ const ESTADO_STOCK = {
 
 // ---------- piezas comunes (encabezado con foto y tarjetas de la figura) ----------
 
-const Marco = ({ titulo, onClose, children }: { titulo: string; onClose: () => void; children: React.ReactNode }) =>
+const Marco = ({
+  titulo,
+  onClose,
+  ancho = "max-w-2xl",
+  children,
+}: {
+  titulo: string;
+  onClose: () => void;
+  ancho?: string;
+  children: React.ReactNode;
+}) =>
   createPortal(
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] px-4 py-6">
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-full flex flex-col text-black"
+        className={`bg-white rounded-xl shadow-xl w-full ${ancho} max-h-full flex flex-col text-black`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="titulo-detalle-articulo"
@@ -123,14 +126,15 @@ const etiquetasDe = (categoria: ProductoDetalle["categoria"]) =>
 function useCarga<T>(cargar: () => Promise<T>) {
   const [datos, setDatos] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [vez, setVez] = useState(0);
   useEffect(() => {
     cargar()
       .then(setDatos)
       .catch((e) => setError(e instanceof ApiError ? e.message : "No pudimos cargar el detalle."));
-    // se carga una vez por diálogo abierto
+    // se carga al abrir el diálogo y cada vez que se pide recargar
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return { datos, error };
+  }, [vez]);
+  return { datos, error, recargar: () => setVez((v) => v + 1) };
 }
 
 // ---------- Detalle de producto (enunciado, historia #20, figura 53) ----------
@@ -207,13 +211,24 @@ export const DetalleProductoAdmin = ({ id, onClose, onEditar }: { id: number; on
 
 // ---------- Detalle de insumo (enunciado, historia #27, figura 66) ----------
 
-export const DetalleInsumoAdmin = ({ id, onClose, onEditar }: { id: number; onClose: () => void; onEditar: () => void }) => {
-  const { datos: i, error } = useCarga<InsumoDetalle>(() => obtenerInsumoDetalle(id));
+export const DetalleInsumoAdmin = ({
+  id,
+  onClose,
+  onEditar,
+  onCambio,
+}: {
+  id: number;
+  onClose: () => void;
+  onEditar: () => void;
+  // Una existencia cambió el stock o el costo: la tabla de insumos se recarga.
+  onCambio?: () => void;
+}) => {
+  const { datos: i, error, recargar } = useCarga<InsumoDetalle>(() => obtenerInsumoDetalle(id));
   const unidad = i?.unidadMedida?.abreviatura ?? "";
   const stock = (valor: number | null) => (valor == null ? "—" : `${valor.toLocaleString("es-AR")} ${unidad}`.trim());
 
   return (
-    <Marco titulo="Detalle insumo" onClose={onClose}>
+    <Marco titulo="Detalle insumo" onClose={onClose} ancho="max-w-3xl">
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!i && !error && <p className="text-sm text-gray-500">Cargando...</p>}
       {i && (
@@ -239,6 +254,13 @@ export const DetalleInsumoAdmin = ({ id, onClose, onEditar }: { id: number; onCl
               : "Se usa para elaborar productos (no se vende suelto)."}
           </p>
           <p className="text-xs text-gray-500 mt-3">Última modificación: {fechaHora(i.fechaModificacion)}</p>
+          <SeccionExistenciasInsumo
+            insumo={{ id: i.id, denominacion: i.denominacion, imagenUrl: i.imagenUrl, unidad, unidadBase: unidadBase(unidad) }}
+            onCambio={() => {
+              recargar();
+              onCambio?.();
+            }}
+          />
         </>
       )}
     </Marco>

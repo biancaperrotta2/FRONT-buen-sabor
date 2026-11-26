@@ -52,3 +52,39 @@ export function obtenerProductoDetalle(id: number): Promise<ProductoDetalle> {
 export function obtenerInsumoDetalle(id: number): Promise<InsumoDetalle> {
   return apiFetchJson(`/insumos/${id}`);
 }
+
+// ---------- Existencias (compras) de un insumo: historias #27 y #28, figuras 66 y 67 ----------
+
+// cantidad en la unidad que el insumo tiene elegida (ej. gr); costoUnitario por unidad base (ej. $ x kg).
+export interface ExistenciaInsumo {
+  id: number;
+  fechaCompra: string;
+  cantidad: number;
+  costoUnitario: number;
+  costoTotal: number;
+  fechaVencimiento: string;
+  vencida: boolean;
+}
+
+export interface ExistenciaInsumoDatos {
+  fechaCompra: string;
+  cantidad: number;
+  costoUnitario: number;
+  fechaVencimiento: string;
+}
+
+export function listarExistenciasInsumo(idInsumo: number): Promise<ExistenciaInsumo[]> {
+  return apiFetchJson(`/insumos/${idInsumo}/existencias`);
+}
+
+export function crearExistenciaInsumo(idInsumo: number, datos: ExistenciaInsumoDatos): Promise<ExistenciaInsumo> {
+  return apiFetchJson(`/insumos/${idInsumo}/existencias`, { method: "POST", body: JSON.stringify(datos) });
+}
+
+export function editarExistenciaInsumo(idExistencia: number, datos: ExistenciaInsumoDatos): Promise<ExistenciaInsumo> {
+  return apiFetchJson(`/insumos/existencias/${idExistencia}`, { method: "PUT", body: JSON.stringify(datos) });
+}
+
+export function eliminarExistenciaInsumo(idExistencia: number): Promise<void> {
+  return apiFetchJson(`/insumos/existencias/${idExistencia}`, { method: "DELETE" });
+}

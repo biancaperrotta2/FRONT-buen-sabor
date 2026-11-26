@@ -15,6 +15,7 @@ import { useCategoria } from "../context/CategoriaContext";
 import { convertirCantidad, factorDeUnidad } from "../utils/unidades";
 import { subirImagen } from "../services/imagenService";
 import { DetalleInsumoAdmin } from "../components/DetalleArticuloAdmin";
+import { AnadirExistenciaDesdeFila } from "../components/ExistenciasInsumo";
 
 interface UsoInsumo {
   recetas: { idProducto: number; producto: string; cantidad: number }[];
@@ -62,6 +63,7 @@ export const Insumos = () => {
     editarInsumo,
     eliminarInsumo,
     unidadesMedida,
+    fetchInsumos,
   } = useInsumos();
   const { categorias } = useCategoria();
 
@@ -97,6 +99,8 @@ export const Insumos = () => {
   // Cuando abro el modal para editar un insumo
   // Diálogo "Detalle insumo" (figura 66); su "Editar insumo" abre el mismo formulario de edición.
   const [enDetalle, setEnDetalle] = useState<ArticuloInsumo | null>(null);
+  // "Añadir existencia" (figura 67) directo desde la fila: registra una compra y suma al stock.
+  const [existenciaPara, setExistenciaPara] = useState<number | null>(null);
 
   const handleEditar = (insumo: ArticuloInsumo) => {
     setModoEdicion(true);
@@ -310,6 +314,12 @@ export const Insumos = () => {
                         Ver detalle
                       </button>
                       <button
+                        className="cursor-pointer bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded whitespace-nowrap"
+                        onClick={() => setExistenciaPara(insumo.id!)}
+                      >
+                        Añadir existencia
+                      </button>
+                      <button
                         className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded"
                         onClick={() => handleEditar(insumo)}
                       >
@@ -435,6 +445,17 @@ export const Insumos = () => {
             const insumo = enDetalle;
             setEnDetalle(null);
             handleEditar(insumo);
+          }}
+          onCambio={fetchInsumos}
+        />
+      )}
+      {existenciaPara != null && (
+        <AnadirExistenciaDesdeFila
+          idInsumo={existenciaPara}
+          onClose={() => setExistenciaPara(null)}
+          onGuardado={() => {
+            setExistenciaPara(null);
+            fetchInsumos();
           }}
         />
       )}
